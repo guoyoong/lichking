@@ -1,0 +1,25 @@
+1.运行
+    cd /home/bastion/spider_lenovo/lichking
+    nohup scrapy crawl ithome > ../spider_logs/ithome.log &
+    nohup scrapy crawl baidu_tieba > ../spider_logs/zhengjiuzhe.log &
+2.依赖
+    sudo pip install -t /usr/local/lib/python2.7/site-packages/
+    pip install scrapy
+    pip install beautifulsoup4
+    pip install lxml
+    pip install mongoengine
+
+3 数据
+    mongo localhost:27017/yuqing -u yuqing -p   123456
+    db.y_lenovo_forum_item.count()
+
+
+4.spider启动注意事项：
+    spider crawl myspider -a category=pc
+    # 在 init 方法中获取
+    scrapy genspider mydomain mydomain.com
+    import logging
+    logging.log(logging.WARNING, "waring")
+
+5.mongo 运维：
+    查看连接数：db.serverStatus().connections
