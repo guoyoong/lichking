@@ -23,7 +23,7 @@ class TiebaSpider(scrapy.Spider):
     source_short = 'baidu_tieba'
     connect('yuqing', host=MONGODB_URI['host'], port=MONGODB_URI['port'],
             username=MONGODB_URI['username'], password=MONGODB_URI['password'])
-    category = '联想'
+    category_arr = ["thinkpad", "拯救者游戏本", "联想", "联想小新"]
 
     custom_settings = {
         'COOKIES_ENABLED': False,
@@ -46,12 +46,13 @@ class TiebaSpider(scrapy.Spider):
 
     def start_requests(self):
         # 进入贴吧
-        url = 'http://tieba.baidu.com/f?ie=utf-8&kw=' + self.category + '&fr=search&pn=0'
-        yield scrapy.Request(
-            url,
-            meta={"page_key": 0},
-            callback=self.get_record_list
-        )
+        for category in self.category_arr:
+            url = 'http://tieba.baidu.com/f?ie=utf-8&kw=' + category + '&fr=search&pn=0'
+            yield scrapy.Request(
+                url,
+                meta={"page_key": 0, "category": category},
+                callback=self.get_record_list
+            )
 
     def get_record_list(self, response):
         content = response.body
@@ -59,22 +60,23 @@ class TiebaSpider(scrapy.Spider):
         content = content.replace('-->', '')
         tree = etree.HTML(content)
         url_list = tree.xpath('//*[@id="thread_list"]//a/@href')
-
+        category = response.meta['category']
         for i in url_list:
             if '/p/' in i and 'http://' not in i:
                 tie_url = 'http://tieba.baidu.com' + i
                 yield scrapy.Request(
                     tie_url,
+                    meta={"category": category},
                     callback=self.get_record_page_num
                 )
         # check last reply time, 昨天回复的帖子时间格式： 12:12
         rep_time = tree.xpath('//span[contains(@class,"threadlist_reply_date")]/text()')
         if rep_time[0].find(':') != -1:
             page_key = int(response.meta['page_key']) + 50
-            url = 'http://tieba.baidu.com/f?ie=utf-8&kw=' + self.category + '&fr=search&pn=' + str(page_key)
+            url = 'http://tieba.baidu.com/f?ie=utf-8&kw=' + category + '&fr=search&pn=' + str(page_key)
             yield scrapy.Request(
                 url,
-                meta={"page_key": page_key},
+                meta={"page_key": page_key, "category": category},
                 callback=self.get_record_list
             )
 
@@ -90,7 +92,7 @@ class TiebaSpider(scrapy.Spider):
         tieba_item['_id'] = tie_id
         # 帖子标题
         tieba_item.title = self.get_item_value(response.xpath('//title/text()').extract())
-        tieba_item.category = self.category
+        tieba_item.category = response.meta['category']
 
         # 帖子时间
         tie_time = re.search(u'\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}', response.body)

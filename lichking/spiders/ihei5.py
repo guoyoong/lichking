@@ -13,46 +13,50 @@ class Ihei5Spider(scrapy.Spider):
     name = "ihei5"
     allowed_domains = ["bbs.ihei5.com"]
     start_urls = ['http://bbs.ihei5.com/']
-    forum_list_file = 'ihei5_forum_list_file'
     source_name = '爱黑武'
     source_short = 'ihei5'
+    forum_dict = {}
+
+    custom_settings = {
+        'COOKIES_ENABLED': False,
+        # 是否追踪referer
+        'REFERER_ENABLED': True,
+        'AUTOTHROTTLE_DEBUG': False,
+        'AUTOTHROTTLE_ENABLED': True,
+        'AUTOTHROTTLE_START_DELAY': 0.1,
+        'AUTOTHROTTLE_MAX_DELAY': 0.8,
+        'DOWNLOAD_DELAY': 0.2,
+        'CONCURRENT_REQUESTS_PER_DOMAIN': 1,
+        'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleFifoDiskQueue',
+        'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.FifoMemoryQueue',
+    }
 
     def start_requests(self):
-        # enter forum
-        for line in fileinput.input(self.forum_list_file):
-            if not line:
-                break
-            if line.find('#') == -1:
+        yield scrapy.Request(
+            'http://bbs.ihei5.com/',
+            callback=self.generate_forum_url_list
+        )
+
+    def generate_forum_url_list(self, response):
+        all_a_tags = response.xpath('//a/@href').extract()
+        for a_tag in all_a_tags:
+            a_tag_re = re.search(u'forum.php\?gid=[\d]+', a_tag)
+            if a_tag_re is not None:
                 yield scrapy.Request(
-                    line.strip(),
-                    dont_filter='true',
-                    callback=self.generate_forum_page_list
+                    a_tag,
+                    callback=self.generate_forum_url_list
                 )
-
-    def update_forum_group(self):
-        url = 'http://bbs.ihei5.com/forum.php?gid='
-        for i in range(1, 250):
-            yield scrapy.Request(
-                url + str(i),
-                dont_filter='true',
-                callback=self.generate_forum_group
-            )
-
-    def generate_forum_group(self, response):
-        forum_list = response.xpath('//td[@class="fl_g"]//dt//a/@href').extract()
-        if len(forum_list) > 0:
-            all_url = ''
-            for forum_url in forum_list:
-                all_url += forum_url+'\n'
-            with open(self.forum_list_file, 'a') as f:
-                f.write(all_url)
-        forum_list = response.xpath('//td[@class="fl_icn"]//a/@href').extract()
-        if len(forum_list) > 0:
-            all_url = ''
-            for forum_url in forum_list:
-                all_url += forum_url+'\n'
-            with open(self.forum_list_file, 'a') as f:
-                f.write(all_url)
+            a_tag_re = re.search(u'forum-[\d]+-[\d]+.html', a_tag)
+            if a_tag_re is not None:
+                if a_tag in self.forum_dict:
+                    logging.error("exists:"+a_tag)
+                    self.forum_dict[a_tag] += 1
+                else:
+                    self.forum_dict[a_tag] = 1
+                    yield scrapy.Request(
+                        a_tag,
+                        callback=self.generate_forum_page_list
+                    )
 
     def generate_forum_page_list(self, response):
         flag = -1
@@ -124,7 +128,13 @@ class Ihei5Spider(scrapy.Spider):
                 else:
                     last_page = 10
                 c_url = response.url[:len(response.url) - 8]
-                for i in range(1, int(last_page)):
+                # 水帖，只爬最后20页
+                start_page = 1
+                last_page = int(last_page)
+                if last_page > 50:
+                    start_page = last_page - 20
+                logging.error("start:"+str(start_page)+",end:"+str(last_page))
+                for i in range(start_page, last_page):
                     yield scrapy.Request(
                         c_url + str(i) + '-1.html',
                         callback=self.generate_forum_thread

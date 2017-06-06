@@ -93,6 +93,7 @@ class YCnmoForumItem(Document):
     insert_time = StringField(default='')
     flag = StringField(default='')
     parse_time = StringField(default='')
+    last_rep_time = StringField(default='')
 
 
 class YIhei5Item(Document):
@@ -115,6 +116,66 @@ class YIhei5Item(Document):
 
 
 class YIt168Item(Document):
+    _id = StringField(default='')
+    url = StringField(default='')
+    # forum
+    source = StringField(default='')
+    source_short = StringField(default='')
+    views = StringField(default='')
+    # forum part
+    category = StringField(default='')
+    replies = StringField(default='')
+    title = StringField(default='')
+    comment = ListField()
+    content = StringField(default='')
+    time = StringField(default='')
+    insert_time = StringField(default='')
+    flag = StringField(default='')
+    parse_time = StringField(default='')
+    last_rep_time = StringField(default='')
+
+
+class YZhiyooItem(Document):
+    _id = StringField(default='')
+    url = StringField(default='')
+    # forum
+    source = StringField(default='')
+    source_short = StringField(default='')
+    views = StringField(default='')
+    # forum part
+    category = StringField(default='')
+    replies = StringField(default='')
+    title = StringField(default='')
+    comment = ListField()
+    content = StringField(default='')
+    time = StringField(default='')
+    insert_time = StringField(default='')
+    flag = StringField(default='')
+    parse_time = StringField(default='')
+    last_rep_time = StringField(default='')
+
+
+class YHiapkItem(Document):
+    _id = StringField(default='')
+    url = StringField(default='')
+    # forum
+    source = StringField(default='')
+    source_short = StringField(default='')
+    views = StringField(default='')
+    # forum part
+    category = StringField(default='')
+    replies = StringField(default='')
+    title = StringField(default='')
+    comment = ListField()
+    content = StringField(default='')
+    time = StringField(default='')
+    insert_time = StringField(default='')
+    flag = StringField(default='')
+    parse_time = StringField(default='')
+    last_rep_time = StringField(default='')
+
+
+class YAngeeksItem(Document):
     _id = StringField(default='')
     url = StringField(default='')
     # forum

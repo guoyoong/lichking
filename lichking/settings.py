@@ -99,3 +99,10 @@ MONGODB_URI = {
     'password': '123456',
 }
 
+# MONGODB_URI = {
+#     'host': '10.0.8.49',
+#     'port': 20000,
+#     'database': 'yuqing',
+#     'username': 'emotion',
+#     'password': 'Lenovo1Motion!',
+# }

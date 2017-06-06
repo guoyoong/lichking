@@ -20,7 +20,6 @@ class LenovoClub(scrapy.Spider):
     page_num = 100
     start_page_num = 0
     # 将论坛的url地址都存储到文本
-    url_file_name = "lenovo_forum_url_list"
     allowed_domains = ["club.lenovo.com.cn"]
     source_name = "联想社区"
     source_short = "lenovo_forum"
@@ -87,8 +86,6 @@ class LenovoClub(scrapy.Spider):
                 callback=self.generate_forum_content,
                 dont_filter='true'
             )
-        with open(self.url_file_name, 'a') as f:
-            f.write('\n'+forum_url)
 
     # parse forum content and store
     def generate_forum_content(self, response):

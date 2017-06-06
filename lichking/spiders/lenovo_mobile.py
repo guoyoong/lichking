@@ -18,7 +18,6 @@ class LenovoMobile(scrapy.Spider):
 
     name = "lenovo_mobile"
     # 将论坛的url地址都存储到文本
-    url_file_name = "lenovo_mobile_url_list"
     allowed_domains = ["bbs.lenovomobile.cn"]
     source_name = "联想手机社区"
     source_short = "lenovo_mobile"
@@ -117,8 +116,6 @@ class LenovoMobile(scrapy.Spider):
                 callback=self.generate_forum_content,
                 dont_filter='true'
             )
-        with open(self.url_file_name, 'a') as f:
-            f.write('\n' + forum_url)
 
     def generate_forum_content(self, response):
         forum_item = YLenovoMobileItem()

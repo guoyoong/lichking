@@ -163,6 +163,53 @@ class MongoClient:
                 items.update_one(set__last_rep_time=forum_item.last_rep_time)
                 items.update_one(set__comment=n_comment)
 
+    @staticmethod
+    def save_zhiyoo_forum(forum_item):
+        forum_item.insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        forum_item.flag = '-1'
+        if forum_item.title != '':
+            forum_item.save()
+        else:
+            items = YZhiyooItem.objects(_id=forum_item._id)
+            if len(items) > 0:  # not
+                n_comment = \
+                    MongoClient.remove_duplicate_comment(items[0].comment, forum_item.comment[0])
+                insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                items.update_one(set__insert_time=insert_time)
+                items.update_one(set__last_rep_time=forum_item.last_rep_time)
+                items.update_one(set__comment=n_comment)
+
+    @staticmethod
+    def save_hiapk_forum(forum_item):
+        forum_item.insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        forum_item.flag = '-1'
+        if forum_item.title != '':
+            forum_item.save()
+        else:
+            items = YHiapkItem.objects(_id=forum_item._id)
+            if len(items) > 0:  # not
+                n_comment = \
+                    MongoClient.remove_duplicate_comment(items[0].comment, forum_item.comment[0])
+                insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                items.update_one(set__insert_time=insert_time)
+                items.update_one(set__last_rep_time=forum_item.last_rep_time)
+                items.update_one(set__comment=n_comment)
+
+    @staticmethod
+    def save_angeeks_forum(forum_item):
+        forum_item.insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        forum_item.flag = '-1'
+        if forum_item.title != '':
+            forum_item.save()
+        else:
+            items = YAngeeksItem.objects(_id=forum_item._id)
+            if len(items) > 0:  # not
+                n_comment = \
+                    MongoClient.remove_duplicate_comment(items[0].comment, forum_item.comment[0])
+                insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                items.update_one(set__insert_time=insert_time)
+                items.update_one(set__last_rep_time=forum_item.last_rep_time)
+                items.update_one(set__comment=n_comment)
 
     # 评论去重
     @staticmethod
