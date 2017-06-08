@@ -3,7 +3,7 @@
 from mongoengine import *
 
 
-class YLenovoForumItem(Document):
+class YLenovoForum2Item(Document):
     _id = StringField(default='')
     url = StringField(default='')
     # forum
@@ -20,9 +20,11 @@ class YLenovoForumItem(Document):
     insert_time = StringField(default='')
     flag = StringField(default='')
     parse_time = StringField(default='')
+    last_reply_time = StringField(default='')
+    v = StringField(default='0.1')
 
 
-class YLenovoMobileItem(Document):
+class YLenovoMobile2Item(Document):
     _id = StringField(default='')
     url = StringField(default='')
     # forum
@@ -38,9 +40,11 @@ class YLenovoMobileItem(Document):
     insert_time = StringField(default='')
     parse_time = StringField(default='')
     flag = StringField(default='')
+    last_reply_time = StringField(default='')
+    v = StringField(default='0.1')
 
 
-class YIthomeItem(Document):
+class YIthome2Item(Document):
     _id = StringField(default='')
     url = StringField(default='')
     title = StringField(default='')
@@ -56,9 +60,11 @@ class YIthomeItem(Document):
     insert_time = StringField(default='')
     flag = StringField(default='')
     parse_time = StringField(default='')
+    last_reply_time = StringField(default='')
+    v = StringField(default='0.1')
 
 
-class YBaiduTiebaItem(Document):
+class YBaiduTieba2Item(Document):
     _id = StringField(default='')
     url = StringField(default='')
     # forum
@@ -74,29 +80,11 @@ class YBaiduTiebaItem(Document):
     insert_time = StringField(default='')
     flag = StringField(default='')
     parse_time = StringField(default='')
+    last_reply_time = StringField(default='')
+    v = StringField(default='0.1')
 
 
-class YCnmoForumItem(Document):
-    _id = StringField(default='')
-    url = StringField(default='')
-    # forum
-    source = StringField(default='')
-    source_short = StringField(default='')
-    views = StringField(default='')
-    # forum part
-    category = StringField(default='')
-    replies = StringField(default='')
-    title = StringField(default='')
-    comment = ListField()
-    content = StringField(default='')
-    time = StringField(default='')
-    insert_time = StringField(default='')
-    flag = StringField(default='')
-    parse_time = StringField(default='')
-    last_rep_time = StringField(default='')
-
-
-class YIhei5Item(Document):
+class YCnmoForum2Item(Document):
     _id = StringField(default='')
     url = StringField(default='')
     # forum
@@ -113,6 +101,29 @@ class YIhei5Item(Document):
     insert_time = StringField(default='')
     flag = StringField(default='')
     parse_time = StringField(default='')
+    last_reply_time = StringField(default='')
+    v = StringField(default='0.1')
+
+
+class YIhei52Item(Document):
+    _id = StringField(default='')
+    url = StringField(default='')
+    # forum
+    source = StringField(default='')
+    source_short = StringField(default='')
+    views = StringField(default='')
+    # forum part
+    category = StringField(default='')
+    replies = StringField(default='')
+    title = StringField(default='')
+    comment = ListField()
+    content = StringField(default='')
+    time = StringField(default='')
+    insert_time = StringField(default='')
+    flag = StringField(default='')
+    parse_time = StringField(default='')
+    last_reply_time = StringField(default='')
+    v = StringField(default='0.1')
 
 
 class YIt168Item(Document):
@@ -132,7 +143,8 @@ class YIt168Item(Document):
     insert_time = StringField(default='')
     flag = StringField(default='')
     parse_time = StringField(default='')
-    last_rep_time = StringField(default='')
+    last_reply_time = StringField(default='')
+    v = StringField(default='0.1')
 
 
 class YZhiyooItem(Document):

@@ -3,6 +3,7 @@
 from mongo_item import *
 import datetime
 import sys
+from lichking.util.time_util import *
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -40,45 +41,33 @@ class MongoClient:
     def save_forum_item(forum_item):
         forum_item.insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         if forum_item.title != '':
-            items = YLenovoForumItem.objects(_id=forum_item._id)
-            if len(items) > 0:  # not
-                forum_item.comment = \
-                    MongoClient.remove_duplicate_comment(items[0].comment, forum_item.comment[0])
-                forum_item.save()
-            else:
-                forum_item.save()   # fisrt
+            forum_item.save()   # fisrt
         else:
-            items = YLenovoForumItem.objects(_id=forum_item._id)
+            items = YLenovoForum2Item.objects(_id=forum_item._id)
             if len(items) > 0:  # not
                 n_comment = \
                     MongoClient.remove_duplicate_comment(items[0].comment, forum_item.comment[0])
                 insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 items.update_one(set__insert_time=insert_time)
+                last_rtime = TimeUtil.compare_date_short(items[0].last_reply_time, forum_item.last_reply_time)
+                items.update_one(set__last_reply_time=last_rtime)
                 items.update_one(set__comment=n_comment)
-            else:
-                forum_item.save()  # fisrt
 
     @staticmethod
     def save_mobile_item(forum_item):
         forum_item.insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         if forum_item.title != '':
-            items = YLenovoMobileItem.objects(_id=forum_item._id)
-            if len(items) > 0:  # not
-                forum_item.comment = \
-                    MongoClient.remove_duplicate_comment(items[0].comment, forum_item.comment[0])
-                forum_item.save()
-            else:
-                forum_item.save()   # fisrt
+            forum_item.save()   # fisrt
         else:
-            items = YLenovoMobileItem.objects(_id=forum_item._id)
+            items = YLenovoMobile2Item.objects(_id=forum_item._id)
             if len(items) > 0:  # not
                 n_comment = \
                     MongoClient.remove_duplicate_comment(items[0].comment, forum_item.comment[0])
                 insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 items.update_one(set__insert_time=insert_time)
+                last_rtime = TimeUtil.compare_date_short(items[0].last_reply_time, forum_item.last_reply_time)
+                items.update_one(set__last_reply_time=last_rtime)
                 items.update_one(set__comment=n_comment)
-            else:
-                forum_item.save()  # fisrt
 
     @staticmethod
     def save_ithome_article(article_item):
@@ -87,18 +76,20 @@ class MongoClient:
         if article_item.title != '':
             article_item.save()
         else:
-            items = YIthomeItem.objects(_id=article_item._id)
+            items = YIthome2Item.objects(_id=article_item._id)
             if len(items) > 0:  # not
                 n_comment = \
                     MongoClient.remove_duplicate_comment(items[0].comment, article_item.comment[0])
                 insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 items.update_one(set__insert_time=insert_time)
+                if article_item.last_reply_time != '':
+                    items.update_one(set__last_reply_time=article_item.last_reply_time)
                 items.update_one(set__comment=n_comment)
 
     @staticmethod
     def save_ithome_com_sum(article_item):
         if article_item.replies != '':
-            items = YIthomeItem.objects(_id=article_item._id)
+            items = YIthome2Item.objects(_id=article_item._id)
             if len(items) > 0:
                 items.update_one(set__replies=article_item.replies)
 
@@ -109,11 +100,13 @@ class MongoClient:
         if tieba_item.title != '':
             tieba_item.save()
         else:
-            items = YBaiduTiebaItem.objects(_id=tieba_item._id)
+            items = YBaiduTieba2Item.objects(_id=tieba_item._id)
             if len(items) > 0:  # not
                 n_comment = \
                     MongoClient.remove_duplicate_comment(items[0].comment, tieba_item.comment[0])
                 insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                last_rtime = TimeUtil.compare_date_short(items[0].last_reply_time, tieba_item.last_reply_time)
+                items.update_one(set__last_reply_time=last_rtime)
                 items.update_one(set__insert_time=insert_time)
                 items.update_one(set__comment=n_comment)
 
@@ -124,12 +117,13 @@ class MongoClient:
         if forum_item.title != '':
             forum_item.save()
         else:
-            items = YCnmoForumItem.objects(_id=forum_item._id)
+            items = YCnmoForum2Item.objects(_id=forum_item._id)
             if len(items) > 0:  # not
                 n_comment = \
                     MongoClient.remove_duplicate_comment(items[0].comment, forum_item.comment[0])
                 insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 items.update_one(set__insert_time=insert_time)
+                items.update_one(set__last_reply_time=forum_item.last_reply_time)
                 items.update_one(set__comment=n_comment)
 
     @staticmethod
@@ -139,12 +133,14 @@ class MongoClient:
         if forum_item.title != '':
             forum_item.save()
         else:
-            items = YIhei5Item.objects(_id=forum_item._id)
+            items = YIhei52Item.objects(_id=forum_item._id)
             if len(items) > 0:  # not
                 n_comment = \
                     MongoClient.remove_duplicate_comment(items[0].comment, forum_item.comment[0])
                 insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 items.update_one(set__insert_time=insert_time)
+                last_rtime = TimeUtil.compare_date_short(items[0].last_reply_time, forum_item.last_reply_time)
+                items.update_one(set__last_reply_time=last_rtime)
                 items.update_one(set__comment=n_comment)
 
     @staticmethod
@@ -160,7 +156,7 @@ class MongoClient:
                     MongoClient.remove_duplicate_comment(items[0].comment, forum_item.comment[0])
                 insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 items.update_one(set__insert_time=insert_time)
-                items.update_one(set__last_rep_time=forum_item.last_rep_time)
+                items.update_one(set__last_reply_time=forum_item.last_reply_time)
                 items.update_one(set__comment=n_comment)
 
     @staticmethod
@@ -216,7 +212,7 @@ class MongoClient:
     def remove_duplicate_comment(source_comments, new_comment):
         index = sys.maxint
         for i in range(0, len(source_comments)):
-            if source_comments[i][-1] == new_comment[-1]:
+            if source_comments[i]['url'] == new_comment['url']:
                 index = i
         # modify
         if index != sys.maxint:

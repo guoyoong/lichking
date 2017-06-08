@@ -14,7 +14,7 @@ class Ihei5Spider(scrapy.Spider):
     allowed_domains = ["bbs.ihei5.com"]
     start_urls = ['http://bbs.ihei5.com/']
     source_name = '爱黑武'
-    source_short = 'ihei5'
+    source_short = 'ihei52'
     forum_dict = {}
 
     custom_settings = {
@@ -24,7 +24,7 @@ class Ihei5Spider(scrapy.Spider):
         'AUTOTHROTTLE_DEBUG': False,
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.1,
-        'AUTOTHROTTLE_MAX_DELAY': 0.8,
+        'AUTOTHROTTLE_MAX_DELAY': 0.4,
         'DOWNLOAD_DELAY': 0.2,
         'CONCURRENT_REQUESTS_PER_DOMAIN': 1,
         'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleFifoDiskQueue',
@@ -71,7 +71,8 @@ class Ihei5Spider(scrapy.Spider):
                 timestamp = time.mktime(time.strptime(r_time, '%Y-%m-%d'))
                 r_time = time.strftime('%Y-%m-%d', time.localtime(timestamp))
                 # 是否有新回帖
-                if r_time == today or r_time == yestday:
+                # if r_time == today or r_time == yestday:
+                if 1 == 1:
                     yield scrapy.Request(
                         thread_list[i],
                         callback=self.generate_forum_thread
@@ -91,8 +92,9 @@ class Ihei5Spider(scrapy.Spider):
             forum_id = forum_id.group(0).replace('thread-', '')
         except:
             forum_id = ''
-        forum_item = YIhei5Item()
+        forum_item = YIhei52Item()
         forum_item._id = forum_id
+        rep_time_list = response.xpath('//span[@class="time"]').extract()
 
         # 是否是第一页
         if len(response.xpath('//span[@class="ico_see"]/text()').extract()) > 0:
@@ -101,24 +103,22 @@ class Ihei5Spider(scrapy.Spider):
             forum_item.url = response.url
             forum_item.category = self.get_item_value(
                 response.xpath('//div[@id="pt"]//div[@class="z"]//a[3]/text()').extract())
-            forum_item.time = self.get_item_value(
-                response.xpath('//span[@class="time"]/text()').extract())
-            forum_item.time = self.format_rep_date(forum_item.time)
+            forum_item.time = self.format_rep_date(rep_time_list[0])
             forum_item.views = self.get_item_value(response.xpath('//span[@class="ico_see"]/text()').extract())
             forum_item.replies = \
                 self.get_item_value(response.xpath('//span[@class="ico_reply"]/text()').extract())
             forum_item.title = StrClean.clean_comment(
                 BeautifulSoup(response.xpath('//a[@id="thread_subject"]').extract()[0], 'lxml').get_text())
+            forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
 
             c_soup = BeautifulSoup(response.xpath(
-                '//div[@class="t_fsz"]//table[1]').extract()[0], 'lxml')
+                '//div[@class="t_fsz"]/table[1]').extract()[0], 'lxml')
             if c_soup.find('div', class_='attach_nopermission') is not None:
                 c_soup.find('div', class_='attach_nopermission').clear()
             [s.extract() for s in c_soup('script')]  # remove script tag
             forum_item.content = c_soup.get_text()
             forum_item.content = StrClean.clean_comment(forum_item.content)
             forum_item.comment = self.gen_item_comment(response)
-
             MongoClient.save_ihei5_forum(forum_item)
 
             if len(response.xpath('//div[@class="pg"]').extract()) > 0:
@@ -134,7 +134,7 @@ class Ihei5Spider(scrapy.Spider):
                 if last_page > 50:
                     start_page = last_page - 20
                 logging.error("start:"+str(start_page)+",end:"+str(last_page))
-                for i in range(start_page, last_page):
+                for i in range(start_page, last_page + 1):
                     yield scrapy.Request(
                         c_url + str(i) + '-1.html',
                         callback=self.generate_forum_thread
@@ -142,6 +142,7 @@ class Ihei5Spider(scrapy.Spider):
         else:
             forum_item.title = ''
             forum_item.comment = self.gen_item_comment(response)
+            forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
             MongoClient.save_ihei5_forum(forum_item)
 
         # 是否有下一页
@@ -161,19 +162,20 @@ class Ihei5Spider(scrapy.Spider):
         except:
             return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    @staticmethod
-    def gen_item_comment(response):
+    def gen_item_comment(self, response):
         comment = []
-        new_comment = []
-        for indexi, content in enumerate(response.xpath('//div[@class="t_fsz"]//table[1]').extract()):
+        new_comment = {}
+        comments_data = []
+        rep_time_list = response.xpath('//span[@class="time"]').extract()
+        for indexi, content in enumerate(response.xpath('//div[@class="t_fsz"]/table[1]').extract()):
             soup = BeautifulSoup(content, 'lxml')
             if soup.find('div', class_='attach_nopermission') is not None:
                 soup.find('div', class_='attach_nopermission').clear()
             [s.extract() for s in soup('script')]     # remove script tag
             c = StrClean.clean_unicode(soup.get_text())
-            if c != '':
-                new_comment.append(c)
-        new_comment.append(response.url)
+            comments_data.append({'content': c, 'reply_time': self.format_rep_date(rep_time_list[indexi])})
+        new_comment['url'] = response.url
+        new_comment['comments_data'] = comments_data
         comment.append(new_comment)
         return comment
 

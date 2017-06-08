@@ -2,7 +2,7 @@
 
 import re
 
-f = open('D:\source\lichking\\ihei5_forum_list_file', 'r')
+f = open('D:\source\lichking\\it168_test', 'r')
 dict = {}
 for line in f:
     s = line
@@ -18,11 +18,11 @@ f.close()
 i = 0
 for key in dict:
     i = i+1
-    # print str(i)+':'+key + '.......' + str(dict[key])
+    print str(i)+':'+key + '.......' + str(dict[key])
     if dict[key] > 1:
         print key + '.......' + str(dict[key])
 
-f = open('D:\source\lichking\\ihei5_forum_list_file', 'w')
-for key in dict:
-    f.write(key+'\n')
-f.close()
+# f = open('D:\source\lichking\\ihei5_forum_list_file', 'w')
+# for key in dict:
+#     f.write(key+'\n')
+# f.close()

@@ -1,7 +1,7 @@
 1.运行
     cd /home/bastion/spider_lenovo/lichking
     nohup scrapy crawl ithome > ../spider_logs/ithome.log &
-    nohup scrapy crawl angeeks > ../spider_logs/angeeks.log &
+    nohup scrapy crawl lenovo_club > ../spider_logs/lenovo_club.log &
     nohup python run.py >> /home/work/spider_lenovo/spider_daily.log &
 2.依赖
     sudo pip install -t /usr/local/lib/python2.7/site-packages/
@@ -10,7 +10,7 @@
     pip install lxml
     pip install mongoengine
     pip install apscheduler
-    sudo /usr/local/bin/pip install apscheduler
+    sudo /usr/local/bin/pip install numpy
 3 数据
     mongo localhost:27017/yuqing -u yuqing -p   123456
     db.y_lenovo_forum_item.count()

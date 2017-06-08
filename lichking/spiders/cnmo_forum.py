@@ -18,7 +18,7 @@ class CnmoSpider(scrapy.Spider):
     allowed_domains = ["cnmo.com"]
     start_urls = ['http://bbs.cnmo.com/boardmap/']
     source_name = "手机中国论坛"
-    source_short = "cnmo_forum"
+    source_short = "cnmo_forum2"
     connect('yuqing', host=MONGODB_URI['host'], port=MONGODB_URI['port'],
             username=MONGODB_URI['username'], password=MONGODB_URI['password'])
     # 有几个版块特殊，有单独域名
@@ -37,8 +37,8 @@ class CnmoSpider(scrapy.Spider):
         'AUTOTHROTTLE_DEBUG': False,
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.1,
-        'AUTOTHROTTLE_MAX_DELAY': 0.8,
-        'DOWNLOAD_DELAY': 0.5,
+        'AUTOTHROTTLE_MAX_DELAY': 0.05,
+        'DOWNLOAD_DELAY': 0.1,
         'CONCURRENT_REQUESTS_PER_DOMAIN': 1,
         'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleFifoDiskQueue',
         'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.FifoMemoryQueue',
@@ -54,6 +54,10 @@ class CnmoSpider(scrapy.Spider):
             dont_filter='true',
             callback=self.generate_forum_url_list
         )
+        # yield scrapy.Request(
+        #     'http://bbs.cnmo.com/forum-16313-1.html',
+        #     callback=self.get_record_list
+        # )
 
     def generate_forum_url_list(self, response):
         all_a_tags = response.xpath('//a/@href').extract()
@@ -83,10 +87,11 @@ class CnmoSpider(scrapy.Spider):
         # check 是否有新帖
         rep_time_list = response.xpath('//span[@class="fea-time"]/text()').extract()
         if len(rep_time_list) > 0:
-            rep_time = rep_time_list[0].strip()
-            today = datetime.datetime.now().strftime("%Y-%m-%d")
-            yestday = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
-            if rep_time == today or rep_time == yestday:
+            # rep_time = rep_time_list[0].strip()
+            # today = datetime.datetime.now().strftime("%Y-%m-%d")
+            # yestday = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+            # if rep_time == today or rep_time == yestday:
+            if 1 == 1:
                 flag = 1
                 # 请求下一页
                 page_box = response.xpath('//div[contains(@class, "pagebox")]//a/@title').extract()
@@ -115,7 +120,7 @@ class CnmoSpider(scrapy.Spider):
             forum_url = forum_url.group(0)
         except:
             forum_url = ''
-        forum_item = YCnmoForumItem()
+        forum_item = YCnmoForum2Item()
         forum_item._id = forum_url
         forum_item.url = response.url
         forum_item.source = self.source_name
@@ -135,7 +140,7 @@ class CnmoSpider(scrapy.Spider):
             forum_item.comment = self.gen_item_comment(response)
             rep_time_list = response.xpath('//div[@class="bcom_detail"]//span[2]/text()').extract()
             if len(rep_time_list) > 0:
-                forum_item.last_rep_time = self.format_rep_date(rep_time_list[-1])
+                forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
             MongoClient.save_cnmo_forum(forum_item)
             if len(response.xpath('//span[@class="bornone"]')) > 0:
                 page_num = response.xpath('//div[@class="List-pages fr"]//a/text()').extract()[-3]
@@ -143,7 +148,7 @@ class CnmoSpider(scrapy.Spider):
                 # 回复太多的帖子 大部分为水贴或者活动帖子，每天只爬最后二十页
                 start_page = 2
                 if page_num > 50:
-                    start_page = page_num - 20
+                    start_page = page_num - 40
                 for page in range(start_page, page_num):
                     cnmo_url = response.url[:len(response.url) - 8] + str(page) + '-1.html'
                     yield scrapy.Request(
@@ -156,7 +161,7 @@ class CnmoSpider(scrapy.Spider):
             forum_item.comment = self.gen_item_comment(response)
             rep_time_list = response.xpath('//div[@class="bcom_detail"]//span[2]/text()').extract()
             if len(rep_time_list) > 0:
-                forum_item.last_rep_time = self.format_rep_date(rep_time_list[-1])
+                forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
             MongoClient.save_cnmo_forum(forum_item)
 
     @staticmethod
@@ -168,21 +173,17 @@ class CnmoSpider(scrapy.Spider):
         except:
             return ''
 
-    @staticmethod
-    def gen_item_comment(response):
+    def gen_item_comment(self, response):
         comment = []
-        new_comment = []
+        new_comment = {}
+        comments_data = []
+        rep_time_list = response.xpath('//div[@class="bcom_detail"]//span[2]/text()').extract()
         for indexi, content in enumerate(response.xpath('//div[@class="bcom_text"]').extract()):
             soup = BeautifulSoup(content, 'lxml')
             c = StrClean.clean_unicode(soup.get_text())
-            if c != '':
-                new_comment.append(c)
-        for indexi, content in enumerate(response.xpath('//div[@class="br_Ltext"]/text()').extract()):
-            soup = BeautifulSoup(content, 'lxml')
-            c = StrClean.clean_unicode(soup.get_text())
-            if c != '':
-                new_comment.append(c)
-        new_comment.append(response.url)
+            comments_data.append({'content': c, 'reply_time': self.format_rep_date(rep_time_list[indexi])})
+        new_comment['url'] = response.url
+        new_comment['comments_data'] = comments_data
         comment.append(new_comment)
         return comment
 

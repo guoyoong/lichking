@@ -13,12 +13,12 @@ class IthomeSpider(scrapy.Spider):
     allowed_domains = ["ithome.com"]
     start_urls = ['ithome.com']
     source_name = "IT之家"
-    source_short = "ithome"
+    source_short = "ithome2"
     connect('yuqing', host=MONGODB_URI['host'], port=MONGODB_URI['port'],
             username=MONGODB_URI['username'], password=MONGODB_URI['password'])
     break_point_file_name = "ithome_break_point"
     start_page_num = 1
-    page_num = 4  # 2
+    page_num = 4  # 11789
 
     custom_settings = {
         'COOKIES_ENABLED': False,
@@ -26,8 +26,9 @@ class IthomeSpider(scrapy.Spider):
         'REFERER_ENABLED': True,
         'AUTOTHROTTLE_DEBUG': False,
         'AUTOTHROTTLE_ENABLED': True,
-        'AUTOTHROTTLE_START_DELAY': 0.01,
-        'AUTOTHROTTLE_MAX_DELAY': 0.08,
+        'AUTOTHROTTLE_START_DELAY': 0.1,
+        'AUTOTHROTTLE_MAX_DELAY': 0.05,
+        'DOWNLOAD_DELAY': 0.1,
         'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleFifoDiskQueue',
         'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.FifoMemoryQueue',
         'DOWNLOADER_MIDDLEWARES': {
@@ -59,7 +60,7 @@ class IthomeSpider(scrapy.Spider):
             )
 
     def generate_article_page(self, response):
-        ithome_item = YIthomeItem()
+        ithome_item = YIthome2Item()
         article_id = re.search(u'[\d]+', response.url.split("/")[5])
         try:
             article_id = article_id.group(0)
@@ -76,9 +77,11 @@ class IthomeSpider(scrapy.Spider):
         editor = self.get_item_value(response.xpath('//span[@id="editor_baidu"]//strong//text()').extract())
         ithome_item.author = "作者：" + author + ",责编：" + editor
         ithome_item.time = self.get_item_value(response.xpath('//span[@id="pubtime_baidu"]//text()').extract())
-        ithome_item.time = TimeUtil.transfer_date(ithome_item.time)
+        ithome_item.time = self.format_rep_date(ithome_item.time)
         soup = BeautifulSoup(response.xpath('//div[@class="post_content"]').extract()[0], 'lxml')
         ithome_item.content = StrClean.clean_comment(soup.get_text())
+        ithome_item.last_reply_time = self.format_rep_date(ithome_item.time)
+
         MongoClient.save_ithome_article(ithome_item)
 
         com_url = \
@@ -105,30 +108,39 @@ class IthomeSpider(scrapy.Spider):
                 com_sum = com_sum_script.group(0)
             except:
                 com_sum = ''
-        ithome_item = YIthomeItem()
+        ithome_item = YIthome2Item()
         ithome_item._id = re.search(u'[\d]+', response.url).group(0)
         ithome_item.replies = str(com_sum)
         MongoClient.save_ithome_com_sum(ithome_item)
 
     def generate_article_comment(self, response):
         if response.body:
-            ithome_item = YIthomeItem()
+            ithome_item = YIthome2Item()
             ithome_item._id = re.search(u'[\d]+', response.url).group(0)
             comment = []
-            new_comment = []
+            new_comment = {}
+            comments_data = []
+            rep_time_list = response.xpath('//div[starts-with(@class,"info")]/span[@class="posandtime"]').extract()
             for index, reply_content in enumerate(
                     response.xpath('//div[@class="comm"]').extract()):
-                new_comment.append(BeautifulSoup(reply_content, 'lxml').get_text())
+                c = BeautifulSoup(reply_content, 'lxml').get_text()
+                comments_data.append({'content': c, 'reply_time': self.format_rep_date(rep_time_list[index])})
+            re_rep_time_list = response.xpath(
+                '//div[starts-with(@class,"re_info")]/span[@class="posandtime"]').extract()
             for index, reply_content in enumerate(
                     response.xpath('//div[@class="re_comm"]').extract()):
-                new_comment.append(BeautifulSoup(reply_content, 'lxml').get_text())
-            new_comment.append(response.url)
+                c = BeautifulSoup(reply_content, 'lxml').get_text()
+                comments_data.append({'content': c, 'reply_time': self.format_rep_date(re_rep_time_list[index])})
+            new_comment['url'] = response.url
+            new_comment['comments_data'] = comments_data
             comment.append(new_comment)
             ithome_item.comment = comment
+            pn = int(response.url.split("page=")[1])
+            if pn == 1:
+                ithome_item.last_reply_time = self.format_rep_date(rep_time_list[0])
             MongoClient.save_ithome_article(ithome_item)
 
             com_url = response.url.split("page=")[0]
-            pn = int(response.url.split("page=")[1])
             yield scrapy.Request(
                 com_url + "page=" + str(pn + 1),
                 dont_filter='true',
@@ -136,8 +148,14 @@ class IthomeSpider(scrapy.Spider):
                 callback=self.generate_article_comment
             )
 
-    def parse(self, response):
-        pass
+    @staticmethod
+    def format_rep_date(date_source):
+        date_source = re.search(u'\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}', date_source).group(0)
+        try:
+            timestamp = time.mktime(time.strptime(date_source, '%Y-%m-%d %H:%M:%S'))
+            return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp))
+        except:
+            return ''
 
     @staticmethod
     def get_item_value(forum_arr):

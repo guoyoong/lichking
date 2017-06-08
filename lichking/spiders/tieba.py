@@ -20,10 +20,11 @@ class TiebaSpider(scrapy.Spider):
     allowed_domains = ["tieba.baidu.com"]
     start_urls = ['http://tieba.baidu.com/']
     source_name = '百度贴吧'
-    source_short = 'baidu_tieba'
+    source_short = 'baidu_tieba2'
     connect('yuqing', host=MONGODB_URI['host'], port=MONGODB_URI['port'],
             username=MONGODB_URI['username'], password=MONGODB_URI['password'])
     category_arr = ["thinkpad", "拯救者游戏本", "联想", "联想小新"]
+    # category_arr = ["thinkpad"]
 
     custom_settings = {
         'COOKIES_ENABLED': False,
@@ -70,8 +71,11 @@ class TiebaSpider(scrapy.Spider):
                     callback=self.get_record_page_num
                 )
         # check last reply time, 昨天回复的帖子时间格式： 12:12
-        rep_time = tree.xpath('//span[contains(@class,"threadlist_reply_date")]/text()')
-        if rep_time[0].find(':') != -1:
+        # rep_time = tree.xpath('//span[contains(@class,"threadlist_reply_date")]/text()')
+        # if rep_time[0].find(':') != -1:
+        next_page = tree.xpath('//a[contains(@class, "next")]/text()')
+        if len(next_page) > 0:
+            logging.error(next_page[0])
             page_key = int(response.meta['page_key']) + 50
             url = 'http://tieba.baidu.com/f?ie=utf-8&kw=' + category + '&fr=search&pn=' + str(page_key)
             yield scrapy.Request(
@@ -87,7 +91,7 @@ class TiebaSpider(scrapy.Spider):
         else:
             page_num = 1
 
-        tieba_item = YBaiduTiebaItem()
+        tieba_item = YBaiduTieba2Item()
         tie_id = response.url.split('/p/')[1].split('?')[0]
         tieba_item['_id'] = tie_id
         # 帖子标题
@@ -97,7 +101,7 @@ class TiebaSpider(scrapy.Spider):
         # 帖子时间
         tie_time = re.search(u'\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}', response.body)
         if tie_time:
-            tie_time = tie_time.group(0)
+            tie_time = self.format_rep_date(tie_time.group(0))
         else:
             tie_time = ''
         tieba_item.time = tie_time
@@ -109,16 +113,27 @@ class TiebaSpider(scrapy.Spider):
         tieba_item.content = BeautifulSoup(response.xpath(
             '//div[contains(@class,"d_post_content_firstfloor")]').extract()[0], 'lxml').get_text()
         tieba_item.content = StrClean.clean_unicode(tieba_item.content)
+
+        rep_time_list = re.findall(u'\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}', response.body)
+        tieba_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
         comment = []
-        new_comment = []
+        new_comment = {}
+        comments_data = []
         for indexi, content in enumerate(response.xpath('//div[contains(@class,"j_d_post_content ")]').extract()):
             soup = BeautifulSoup(content, 'lxml')
-            new_comment.append(StrClean.clean_unicode(soup.get_text()))
-        new_comment.append(response.url)
+            c = StrClean.clean_unicode(soup.get_text())
+            if indexi >= len(rep_time_list):
+                rep_time = self.format_rep_date(rep_time_list[-1])
+            else:
+                rep_time = self.format_rep_date(rep_time_list[indexi])
+            comments_data.append({'content': c, 'reply_time': rep_time})
+        new_comment['url'] = response.url
+        new_comment['comments_data'] = comments_data
         comment.append(new_comment)
         tieba_item.comment = comment
         MongoClient.save_tieba_item(tieba_item)
 
+        # 回复的回复
         for indexi, content_id in \
                 enumerate(response.xpath('//div[contains(@class,"j_d_post_content ")]/@id').extract()):
             c_id = re.search(u'[\d]+', content_id).group(0)
@@ -131,9 +146,18 @@ class TiebaSpider(scrapy.Spider):
             )
 
         start_page = 2
-        # 水帖，只爬最后40页
+        # 水帖，只爬前10页，最后30页
         if page_num > 50:
-            start_page = page_num - 40
+            start_page = page_num - 30
+            for i in range(2, 10):
+                yield scrapy.Request(
+                    response.url + '?pn=' + str(i),
+                    meta={
+                        'pageNumber': str(i)
+                    },
+                    callback=self.get_content
+                )
+
         for i in range(start_page, page_num + 1):
             yield scrapy.Request(
                 response.url + '?pn=' + str(i),
@@ -144,7 +168,7 @@ class TiebaSpider(scrapy.Spider):
             )
 
     def get_content(self, response):
-        tieba_item = YBaiduTiebaItem()
+        tieba_item = YBaiduTieba2Item()
         tie_id = response.url.split('/p/')[1].split('?')[0]
         tieba_item['_id'] = tie_id
 
@@ -152,12 +176,21 @@ class TiebaSpider(scrapy.Spider):
             print 'page 1'
         # other page
         else:
+            rep_time_list = re.findall(u'\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}', response.body)
+            tieba_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
             comment = []
-            new_comment = []
+            new_comment = {}
+            comments_data = []
             for indexi, content in enumerate(response.xpath('//div[contains(@class,"j_d_post_content ")]').extract()):
                 soup = BeautifulSoup(content, 'lxml')
-                new_comment.append(StrClean.clean_unicode(soup.get_text()))
-            new_comment.append(response.url)
+                c = StrClean.clean_unicode(soup.get_text())
+                if indexi >= len(rep_time_list):
+                    rep_time = self.format_rep_date(rep_time_list[-1])
+                else:
+                    rep_time = self.format_rep_date(rep_time_list[indexi])
+                comments_data.append({'content': c, 'reply_time': rep_time})
+            new_comment['url'] = response.url
+            new_comment['comments_data'] = comments_data
             comment.append(new_comment)
             tieba_item.comment = comment
             MongoClient.save_tieba_item(tieba_item)
@@ -174,15 +207,23 @@ class TiebaSpider(scrapy.Spider):
 
     def get_comment(self, response):
         if len(response.xpath('//span[@class="lzl_content_main"]').extract()) > 0:
-            tieba_item = YBaiduTiebaItem()
+            tieba_item = YBaiduTieba2Item()
             tieba_item._id = re.search(u'[\d]+', response.url).group(0)
+
+            rep_time_list = re.findall(u'\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}', response.body)
             comment = []
-            new_comment = []
+            new_comment = {}
+            comments_data = []
             for index, reply_content in enumerate(
                     response.xpath('//span[@class="lzl_content_main"]').extract()):
-                new_comment.append(StrClean.clean_comment(BeautifulSoup(reply_content, 'lxml').get_text()))
-
-            new_comment.append(response.url)
+                c = StrClean.clean_comment(BeautifulSoup(reply_content, 'lxml').get_text())
+                if index >= len(rep_time_list):
+                    rep_time = self.format_rep_date(rep_time_list[-1])
+                else:
+                    rep_time = self.format_rep_date(rep_time_list[index])
+                comments_data.append({'content': c, 'reply_time': rep_time})
+            new_comment['url'] = response.url
+            new_comment['comments_data'] = comments_data
             comment.append(new_comment)
             tieba_item.comment = comment
             MongoClient.save_tieba_item(tieba_item)
@@ -194,6 +235,15 @@ class TiebaSpider(scrapy.Spider):
                 dont_filter='true',
                 callback=self.get_comment
             )
+
+    @staticmethod
+    def format_rep_date(date_source):
+        date_source = re.search(u'\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}', date_source).group(0)
+        try:
+            timestamp = time.mktime(time.strptime(date_source, '%Y-%m-%d %H:%M'))
+            return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp))
+        except:
+            return ''
 
     @staticmethod
     def get_item_value(forum_arr):

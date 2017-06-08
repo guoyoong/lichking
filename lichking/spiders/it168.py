@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import scrapy
-import fileinput
 import re
 from lichking.util.str_clean import *
 from lichking.util.time_util import *
@@ -16,6 +15,7 @@ class It168Spider(scrapy.Spider):
     forum_list_file = 'it168_forum_list_file'
     source_name = 'it168'
     source_short = 'it168'
+    forum_dict = {}
 
     custom_settings = {
         'COOKIES_ENABLED': False,
@@ -24,9 +24,9 @@ class It168Spider(scrapy.Spider):
         'AUTOTHROTTLE_DEBUG': False,
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.1,
-        'AUTOTHROTTLE_MAX_DELAY': 0.1,
-        'DOWNLOAD_DELAY': 0.02,
-        'CONCURRENT_REQUESTS_PER_DOMAIN': 1,
+        'AUTOTHROTTLE_MAX_DELAY': 0.05,
+        'DOWNLOAD_DELAY': 0.1,
+        'CONCURRENT_REQUESTS_PER_DOMAIN': 3,
         'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleFifoDiskQueue',
         'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.FifoMemoryQueue',
         'DOWNLOADER_MIDDLEWARES': {
@@ -40,36 +40,53 @@ class It168Spider(scrapy.Spider):
 
     def start_requests(self):
         # enter forum
-        for line in fileinput.input(self.forum_list_file):
-            if not line:
-                break
-            if line.find('#') == -1 and line.strip() != '':
-                yield scrapy.Request(
-                    line.strip(),
-                    dont_filter='true',
-                    callback=self.generate_forum_page_list
-                )
-
-    def generate_forum_start(self):
         yield scrapy.Request(
-            'http://jiyouhui.it168.com/',
-            callback=self.generate_forum
+            'http://jiyouhui.it168.com/forum.php',
+            callback=self.generate_forum_url_list
         )
 
-    def generate_forum(self, response):
+        yield scrapy.Request(
+            'http://benyouhui.it168.com/forum.php',
+            callback=self.generate_forum_url_list
+        )
+        yield scrapy.Request(
+            'http://benyouhui.it168.com/forum-963-1.html',
+            dont_filter='true',
+            callback=self.generate_forum_page_list
+        )
+
+    def generate_forum_url_list(self, response):
         forum_list = response.xpath('//td[@class="fl_g"]//dl//dt//a/@href').extract()
         if len(forum_list) > 0:
-            all_url = ''
+            it168_url_pre = response.url.split('forum')[0]
+            if it168_url_pre[-1] != '/':
+                it168_url_pre += '/'
             for forum_url in forum_list:
-                f_u = response.url + forum_url
-                all_url += f_u+'\n'
-            with open(self.forum_list_file, 'a') as f:
-                f.write(all_url)
+                if forum_url is not None:
+                    if forum_url.find("http") == -1:
+                        forum_url = it168_url_pre + forum_url
+                    yield scrapy.Request(
+                        forum_url,
+                        dont_filter='true',
+                        callback=self.generate_forum_url_list
+                    )
+                    if forum_url in self.forum_dict:
+                        self.forum_dict[forum_url] += 1
+                    else:
+                        logging.error(forum_url)
+                        self.forum_dict[forum_url] = 1
+                        yield scrapy.Request(
+                            forum_url,
+                            dont_filter='true',
+                            callback=self.generate_forum_page_list
+                        )
 
     def generate_forum_page_list(self, response):
         # scrapy all tie url
         thread_list = response.xpath('//a[@class="xst"]/@href').extract()
         it168_url_pre = response.url.split('forum')[0]
+        if it168_url_pre[-1] != '/':
+            it168_url_pre += '/'
         logging.error(response.url)
         logging.error(len(thread_list))
         if len(thread_list) > 0:
@@ -115,18 +132,20 @@ class It168Spider(scrapy.Spider):
             forum_item.time = self.format_rep_date(rep_time_list[0])
             forum_item.title = StrClean.clean_comment(
                 response.xpath('//span[@id="thread_subject"]/text()').extract()[0])
-            c_soup = BeautifulSoup(response.xpath(
-                '//div[@class="pct"]//table[1]').extract()[0], 'lxml')
+            content_div = response.xpath('//div[@class="t_fsz"]//table[1]').extract()
+            if len(content_div) == 0:
+                content_div = response.xpath('//div[@class="pcb"]').extract()
+            c_soup = BeautifulSoup(content_div[0], 'lxml')
             [s.extract() for s in c_soup('script')]  # remove script tag
             forum_item.content = c_soup.get_text()
             forum_item.content = StrClean.clean_comment(forum_item.content)
             forum_item.comment = self.gen_item_comment(response)
-            forum_item.last_rep_time = self.format_rep_date(rep_time_list[-1])
+            forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
             MongoClient.save_it168_forum(forum_item)
         else:
             forum_item.title = ''
             rep_time_list = response.xpath('//div[@class="authi"]//em/text()').extract()
-            forum_item.last_rep_time = self.format_rep_date(rep_time_list[-1])
+            forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
             forum_item.comment = self.gen_item_comment(response)
             MongoClient.save_it168_forum(forum_item)
 
@@ -149,17 +168,18 @@ class It168Spider(scrapy.Spider):
         except:
             return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    @staticmethod
-    def gen_item_comment(response):
+    def gen_item_comment(self, response):
         comment = []
-        new_comment = []
-        for indexi, content in enumerate(response.xpath('//div[@class="t_fsz"]//table[1]').extract()):
+        new_comment = {}
+        comments_data = []
+        rep_time_list = response.xpath('//div[@class="authi"]//em/text()').extract()
+        for indexi, content in enumerate(response.xpath('//div[@class="pcb"]').extract()):
             soup = BeautifulSoup(content, 'lxml')
             [s.extract() for s in soup('script')]  # remove script tag
             c = StrClean.clean_comment(soup.get_text())
-            if c != '':
-                new_comment.append(c)
-        new_comment.append(response.url)
+            comments_data.append({'content': c, 'reply_time': self.format_rep_date(rep_time_list[indexi])})
+        new_comment['url'] = response.url
+        new_comment['comments_data'] = comments_data
         comment.append(new_comment)
         return comment
 

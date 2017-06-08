@@ -17,19 +17,19 @@ sys.setdefaultencoding('utf-8')
 class LenovoClub(scrapy.Spider):
 
     name = "lenovo_club"
-    page_num = 100
+    page_num = 15000
+    # page_num = 5
     start_page_num = 0
-    # 将论坛的url地址都存储到文本
     allowed_domains = ["club.lenovo.com.cn"]
     source_name = "联想社区"
-    source_short = "lenovo_forum"
+    source_short = "lenovo_forum2"
     connect('yuqing', host=MONGODB_URI['host'], port=MONGODB_URI['port'],
             username=MONGODB_URI['username'], password=MONGODB_URI['password'])
     custom_settings = {
         'DOWNLOAD_DELAY': 0.01,
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.01,
-        'AUTOTHROTTLE_MAX_DELAY': 2.0
+        'AUTOTHROTTLE_MAX_DELAY': 1.0
     }
 
     # 断点
@@ -51,40 +51,19 @@ class LenovoClub(scrapy.Spider):
             yield scrapy.Request(
                 h1a_forum_url,
                 dont_filter='true',
-                callback=self.generate_forum_page
+                callback=self.generate_forum_content
             )
+
+        page_key = int(response.meta['page_key']) + 1
         # check last forum time 只抓取一天前的数据
-        rep_time = response.xpath('//div[@class="Forumhome_listbox"]//dl//dd//p/text()').extract()
-        if rep_time[2].find('前') != -1:
-            page_key = int(response.meta['page_key'])+1
+        # rep_time = response.xpath('//div[@class="Forumhome_listbox"]//dl//dd//p/text()').extract()
+        # if rep_time[2].find('前') != -1:
+        if int(page_key) < self.page_num:
             url = 'http://club.lenovo.com.cn/forum-all-reply_time-0-' + str(page_key)
             yield scrapy.Request(
                 url,
                 meta={"page_key": page_key},
                 callback=self.generate_forum_url
-            )
-
-    def generate_forum_page(self, response):
-        forum_url = response.url[:len(response.url) - 8] + '1-1.html'
-        forum_page_bar = response.xpath('//div[@class="pg"]').extract()
-        if len(forum_page_bar) > 0:
-            last_page = response.xpath('//div[@class="pg"]//label//span/text()').extract()[0]
-            last_page = re.search(u'[\d]+', last_page).group(0)
-            if int(last_page) > 500:
-                last_page = 500
-            for i in range(1, int(last_page) + 1):
-                url = response.url[:len(response.url) - 8] + str(i) + '-1.html'
-                forum_url += '\n' + url
-                yield scrapy.Request(
-                    url,
-                    callback=self.generate_forum_content,
-                    dont_filter='true'
-                )
-        else:
-            yield scrapy.Request(
-                forum_url,
-                callback=self.generate_forum_content,
-                dont_filter='true'
             )
 
     # parse forum content and store
@@ -98,7 +77,7 @@ class LenovoClub(scrapy.Spider):
             forum_url = forum_url.group(0)
         except:
             forum_url = ''
-        forum_item = YLenovoForumItem()
+        forum_item = YLenovoForum2Item()
         forum_item._id = forum_url
         if response.url[len(response.url) - 9:] == '-1-1.html':
             forum_item.source = self.source_name
@@ -129,17 +108,24 @@ class LenovoClub(scrapy.Spider):
                     forum_item.time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             forum_item.flag = '-1'
 
+            rep_time_list = response.xpath('//div[@class="authi"]/em').extract()
             # content
             comments = []
-            content_comment = []
+            new_comment = {}
+            comments_data = []
             for indexi, content in enumerate(response.xpath('//div[@class="t_fsz"]').extract()):
                 soup = BeautifulSoup(content, 'lxml')
                 if indexi == 0:
                     forum_item.content = StrClean.clean_comment(soup.get_text())
                 else:
-                    content_comment.append(StrClean.clean_comment(soup.get_text()))
-            content_comment.append(response.url)
-            comments.append(content_comment)
+                    if indexi >= len(rep_time_list):
+                        rep_time = self.format_rep_date(rep_time_list[-1])
+                    else:
+                        rep_time = self.format_rep_date(rep_time_list[indexi])
+                    comments_data.append({'content': StrClean.clean_comment(soup.get_text()), 'reply_time': rep_time})
+            new_comment['url'] = response.url
+            new_comment['comments_data'] = comments_data
+            comments.append(new_comment)
             forum_item.comment = comments
 
             if response.url.find('thinkworld') != -1:
@@ -148,30 +134,59 @@ class LenovoClub(scrapy.Spider):
                                      response.xpath('//div[@class="thinktitleleft"]//span[1]//text()').extract())
                 self.save_item_value(forum_item, 'replies',
                                      response.xpath('//div[@class="thinktitleright"]//span[1]//text()').extract())
-
+            forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
             MongoClient.save_forum_item(forum_item)
+
+            forum_url = response.url[:len(response.url) - 8] + '1-1.html'
+            forum_page_bar = response.xpath('//div[@class="pg"]').extract()
+            if len(forum_page_bar) > 0:
+                last_page = response.xpath('//div[@class="pg"]//label//span/text()').extract()[0]
+                last_page = re.search(u'[\d]+', last_page).group(0)
+                start_page = 2
+                if int(last_page) > 100:
+                    start_page = int(last_page) - 30
+                    for i in range(1, 20):
+                        url = response.url[:len(response.url) - 8] + str(i) + '-1.html'
+                        forum_url += '\n' + url
+                        yield scrapy.Request(
+                            url,
+                            callback=self.generate_forum_content,
+                        )
+
+                for i in range(start_page, int(last_page) + 1):
+                    url = response.url[:len(response.url) - 8] + str(i) + '-1.html'
+                    forum_url += '\n' + url
+                    yield scrapy.Request(
+                        url,
+                        callback=self.generate_forum_content,
+                    )
         else:
+            rep_time_list = response.xpath('//div[@class="authi"]/em').extract()
             comments = []
-            content_comment = []
+            new_comment = {}
+            comments_data = []
             for indexi, content in enumerate(response.xpath('//div[@class="t_fsz"]').extract()):
                 soup = BeautifulSoup(content, 'lxml')
-                content_comment.append(StrClean.clean_comment(soup.get_text()))
-            content_comment.append(response.url)
-            comments.append(content_comment)
+                if indexi >= len(rep_time_list):
+                    rep_time = self.format_rep_date(rep_time_list[-1])
+                else:
+                    rep_time = self.format_rep_date(rep_time_list[indexi])
+                comments_data.append({'content': StrClean.clean_comment(soup.get_text()), 'reply_time': rep_time})
+            new_comment['url'] = response.url
+            new_comment['comments_data'] = comments_data
+            comments.append(new_comment)
             forum_item.comment = comments
+            forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
             MongoClient.save_forum_item(forum_item)
 
-    def get_other_comment_page(self, forum_url, last_page):
-        logging.log(logging.WARNING, last_page)
-        if last_page.isdigit():
-            for i in range(2, int(last_page) + 1):
-                url = "http://club.lenovo.com.cn/" + forum_url + '-' + str(i) + '-1.html',
-                logging.log(logging.WARNING, url)
-                yield scrapy.Request(
-                    url,
-                    dont_filter='true',
-                    callback=self.generate_forum_content
-                )
+    @staticmethod
+    def format_rep_date(date_source):
+        date_source = re.search(u'\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}', date_source).group(0)
+        try:
+            timestamp = time.mktime(time.strptime(date_source, '%Y-%m-%d %H:%M:%S'))
+            return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp))
+        except:
+            return ''
 
     @staticmethod
     def save_item_value(forum_item, forum_key, forum_arr):
