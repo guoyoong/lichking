@@ -71,18 +71,18 @@ class TiebaSpider(scrapy.Spider):
                     callback=self.get_record_page_num
                 )
         # check last reply time, 昨天回复的帖子时间格式： 12:12
-        # rep_time = tree.xpath('//span[contains(@class,"threadlist_reply_date")]/text()')
-        # if rep_time[0].find(':') != -1:
-        next_page = tree.xpath('//a[contains(@class, "next")]/text()')
-        if len(next_page) > 0:
-            logging.error(next_page[0])
-            page_key = int(response.meta['page_key']) + 50
-            url = 'http://tieba.baidu.com/f?ie=utf-8&kw=' + category + '&fr=search&pn=' + str(page_key)
-            yield scrapy.Request(
-                url,
-                meta={"page_key": page_key, "category": category},
-                callback=self.get_record_list
-            )
+        rep_time = tree.xpath('//span[contains(@class,"threadlist_reply_date")]/text()')
+        if self.check_rep_date(rep_time[0]):
+            next_page = tree.xpath('//a[contains(@class, "next")]/text()')
+            if len(next_page) > 0:
+                logging.error(next_page[0])
+                page_key = int(response.meta['page_key']) + 50
+                url = 'http://tieba.baidu.com/f?ie=utf-8&kw=' + category + '&fr=search&pn=' + str(page_key)
+                yield scrapy.Request(
+                    url,
+                    meta={"page_key": page_key, "category": category},
+                    callback=self.get_record_list
+                )
 
     def get_record_page_num(self, response):
         page_num = re.search('<a(.*?)pn=(.*?)"(.*?)>尾页</a>', response.body)
@@ -235,6 +235,20 @@ class TiebaSpider(scrapy.Spider):
                 dont_filter='true',
                 callback=self.get_comment
             )
+
+    def check_rep_date(self, date_source):
+        logging.error(date_source)
+        if date_source.find(':') != -1:
+            return True
+        year = datetime.datetime.now().strftime("%Y")
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        yestday = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+        date_source = re.search(u'\d{1,2}-\d{1,2}', date_source).group(0)
+        date_source = self.format_rep_date(year + '-' + date_source)
+        logging.error(date_source)
+        if date_source == today or date_source == yestday:
+            return True
+        return False
 
     @staticmethod
     def format_rep_date(date_source):

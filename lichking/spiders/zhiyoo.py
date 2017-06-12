@@ -13,10 +13,11 @@ class ZhiyooSpider(scrapy.Spider):
     name = "zhiyoo"
     allowed_domains = ["zhiyoo.com"]
     start_urls = ['http://zhiyoo.com/']
-    forum_list_file = 'zhiyoo_forum_list_file'
     source_name = '安智智友论坛'
     source_short = 'zhiyoo'
-    forum_arr = [2044, 1822, 82, 71, 55, 201, 1692, 204 ,659, 843, 1958, 707, 4]
+    forum_arr = [2044, 1822, 82, 71, 55, 201, 1692, 204, 659, 843, 1958, 707, 4]
+    max_reply = 6000
+    forum_dict = {}
 
     custom_settings = {
         'COOKIES_ENABLED': False,
@@ -26,7 +27,7 @@ class ZhiyooSpider(scrapy.Spider):
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.5,
         'AUTOTHROTTLE_MAX_DELAY': 0.8,
-        'DOWNLOAD_DELAY': 0.8,
+        'DOWNLOAD_DELAY': 0.2,
         'CONCURRENT_REQUESTS_PER_DOMAIN': 1,
         'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleFifoDiskQueue',
         'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.FifoMemoryQueue',
@@ -36,7 +37,7 @@ class ZhiyooSpider(scrapy.Spider):
         },
     }
 
-    def generate_forum_start(self):
+    def start_requests(self):
         yield scrapy.Request(
             'http://bbs.zhiyoo.com/',
             callback=self.generate_forum
@@ -46,29 +47,32 @@ class ZhiyooSpider(scrapy.Spider):
                 'http://bbs.zhiyoo.com/source/module/forum/tab_ajax.php?index=nav_' + str(index),
                 callback=self.generate_forum
             )
+        # yield scrapy.Request(
+        #     'http://bbs.zhiyoo.com/forum-401-1.html',
+        #     callback=self.generate_forum_page_list
+        # )
 
     def generate_forum(self, response):
         forum_list = response.xpath('//td[@class="fl_g"]//dl//dt//a/@href').extract()
         if len(forum_list) > 0:
-            all_url = ''
             for forum_url in forum_list:
-                if forum_url.find('bbs.zhiyou.com') == -1:
-                    all_url += 'http://bbs.zhiyoo.com/' + forum_url + '\n'
-                else:
-                    all_url += forum_url + '\n'
-            with open(self.forum_list_file, 'a') as f:
-                f.write(all_url)
-
-    def start_requests(self):
-        for line in fileinput.input(self.forum_list_file):
-            if not line:
-                break
-            if line.find('#') == -1 and line.strip() != '':
+                f_url = forum_url
+                if forum_url.find('bbs.zhiyoo.com') == -1:
+                    f_url = 'http://bbs.zhiyoo.com/' + forum_url
                 yield scrapy.Request(
-                    line.strip(),
-                    dont_filter='true',
-                    callback=self.generate_forum_page_list
+                    f_url,
+                    callback=self.generate_forum
                 )
+
+                if f_url in self.forum_dict:
+                    self.forum_dict[forum_url] += 1
+                else:
+                    self.forum_dict[f_url] = 1
+                    yield scrapy.Request(
+                        f_url,
+                        dont_filter='true',
+                        callback=self.generate_forum_page_list
+                    )
 
     def generate_forum_page_list(self, response):
         # scrapy all tie url
@@ -79,7 +83,6 @@ class ZhiyooSpider(scrapy.Spider):
             for thread_url in thread_list:
                 yield scrapy.Request(
                     thread_url,
-                    dont_filter='true',
                     callback=self.generate_forum_thread
                 )
         # check 是否有下一页
@@ -87,7 +90,6 @@ class ZhiyooSpider(scrapy.Spider):
         if len(pg_bar) > 0:
             yield scrapy.Request(
                 pg_bar[0],
-                dont_filter='true',
                 callback=self.generate_forum_page_list
             )
 
@@ -96,9 +98,10 @@ class ZhiyooSpider(scrapy.Spider):
         try:
             forum_id = forum_id.group(1)
         except:
-            forum_id = ''
+            forum_id = re.search(u'tid=([\d]+)', response.url).group(1)
         forum_item = YZhiyooItem()
         forum_item._id = forum_id
+        crawl_next = True
         if len(response.xpath('//span[@class="xi1"]/text()').extract()) > 1:
             forum_item.source = self.source_name
             forum_item.source_short = self.source_short
@@ -112,9 +115,11 @@ class ZhiyooSpider(scrapy.Spider):
                 response.xpath('//div[@id="pt"]//div[@class="z"]//a[3]/text()').extract())
             category3 = self.get_item_value(
                 response.xpath('//div[@id="pt"]//div[@class="z"]//a[4]/text()').extract())
-            forum_item.category = category1 + '-' + category2 + '-' + category3
+            category4 = self.get_item_value(
+                response.xpath('//div[@id="pt"]//div[@class="z"]//a[5]/text()').extract())
+            forum_item.category = category1 + '-' + category2 + '-' + category3 + '-' + category4
 
-            rep_time_list = response.xpath('//div[@class="authi"]//em/text()').extract()
+            rep_time_list = response.xpath('//div[@class="authi"]//em').extract()
             forum_item.time = self.format_rep_date(rep_time_list[0])
             forum_item.title = StrClean.clean_comment(
                 response.xpath('//a[@id="thread_subject"]/text()').extract()[0])
@@ -124,23 +129,44 @@ class ZhiyooSpider(scrapy.Spider):
             forum_item.content = c_soup.get_text()
             forum_item.content = StrClean.clean_comment(forum_item.content)
             forum_item.comment = self.gen_item_comment(response)
-            forum_item.last_rep_time = self.format_rep_date(rep_time_list[-1])
+            forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
+            if int(forum_item.replies) < self.max_reply:
+                crawl_next = False
+
             MongoClient.save_zhiyoo_forum(forum_item)
         else:
             forum_item.title = ''
-            rep_time_list = response.xpath('//div[@class="authi"]//em/text()').extract()
-            forum_item.last_rep_time = self.format_rep_date(rep_time_list[-1])
+            rep_time_list = response.xpath('//div[@class="authi"]//em').extract()
+            forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
             forum_item.comment = self.gen_item_comment(response)
             MongoClient.save_zhiyoo_forum(forum_item)
 
         # 是否有下一页
-        if len(response.xpath('//div[@class="pg"]//a[@class="nxt"]').extract()) > 0:
+        if len(response.xpath('//div[@class="pg"]//a[@class="nxt"]').extract()) > 0 and crawl_next:
             r_url = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()[0]
             yield scrapy.Request(
                 r_url,
-                dont_filter='true',
                 callback=self.generate_forum_thread
             )
+
+    def gen_item_comment(self, response):
+        comment = []
+        new_comment = {}
+        comments_data = []
+        rep_time_list = response.xpath('//div[@class="authi"]//em').extract()
+        for indexi, content in enumerate(response.xpath('//div[@class="t_fsz"]//table[1]').extract()):
+            soup = BeautifulSoup(content, 'lxml')
+            [s.extract() for s in soup('script')]  # remove script tag
+            c = StrClean.clean_comment(soup.get_text())
+            if indexi >= len(rep_time_list):
+                rep_time = self.format_rep_date(rep_time_list[-1])
+            else:
+                rep_time = self.format_rep_date(rep_time_list[indexi])
+            comments_data.append({'content': c, 'reply_time': rep_time})
+        new_comment['url'] = response.url
+        new_comment['comments_data'] = comments_data
+        comment.append(new_comment)
+        return comment
 
     @staticmethod
     def format_rep_date(date_source):
@@ -150,20 +176,6 @@ class ZhiyooSpider(scrapy.Spider):
             return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp))
         except:
             return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    @staticmethod
-    def gen_item_comment(response):
-        comment = []
-        new_comment = []
-        for indexi, content in enumerate(response.xpath('//div[@class="t_fsz"]//table[1]').extract()):
-            soup = BeautifulSoup(content, 'lxml')
-            [s.extract() for s in soup('script')]  # remove script tag
-            c = StrClean.clean_comment(soup.get_text())
-            if c != '':
-                new_comment.append(c)
-        new_comment.append(response.url)
-        comment.append(new_comment)
-        return comment
 
     @staticmethod
     def get_item_value(forum_arr):

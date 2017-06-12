@@ -18,7 +18,6 @@ class LenovoClub(scrapy.Spider):
 
     name = "lenovo_club"
     page_num = 15000
-    # page_num = 5
     start_page_num = 0
     allowed_domains = ["club.lenovo.com.cn"]
     source_name = "联想社区"
@@ -47,24 +46,23 @@ class LenovoClub(scrapy.Spider):
 
     # filter all forum url and store
     def generate_forum_url(self, response):
-        for h1a_forum_url in response.xpath('//div[@class="Forumhome_listbox"]//dd//h1//a//@href').extract():
-            yield scrapy.Request(
-                h1a_forum_url,
-                dont_filter='true',
-                callback=self.generate_forum_content
-            )
-
         page_key = int(response.meta['page_key']) + 1
         # check last forum time 只抓取一天前的数据
-        # rep_time = response.xpath('//div[@class="Forumhome_listbox"]//dl//dd//p/text()').extract()
-        # if rep_time[2].find('前') != -1:
-        if int(page_key) < self.page_num:
+        rep_time = response.xpath('//div[@class="Forumhome_listbox"]//dl//dd//p/text()').extract()
+        if self.check_rep_date(rep_time):
             url = 'http://club.lenovo.com.cn/forum-all-reply_time-0-' + str(page_key)
             yield scrapy.Request(
                 url,
                 meta={"page_key": page_key},
                 callback=self.generate_forum_url
             )
+
+            for h1a_forum_url in response.xpath('//div[@class="Forumhome_listbox"]//dd//h1//a//@href').extract():
+                yield scrapy.Request(
+                    h1a_forum_url,
+                    dont_filter='true',
+                    callback=self.generate_forum_content
+                )
 
     # parse forum content and store
     def generate_forum_content(self, response):
@@ -137,6 +135,7 @@ class LenovoClub(scrapy.Spider):
             forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
             MongoClient.save_forum_item(forum_item)
 
+            # 抓取最后几页
             forum_url = response.url[:len(response.url) - 8] + '1-1.html'
             forum_page_bar = response.xpath('//div[@class="pg"]').extract()
             if len(forum_page_bar) > 0:
@@ -178,6 +177,21 @@ class LenovoClub(scrapy.Spider):
             forum_item.comment = comments
             forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
             MongoClient.save_forum_item(forum_item)
+
+    @staticmethod
+    def check_rep_date(rep_time):
+        logging.error(rep_time[2])
+        if rep_time[2].find('前') != -1:
+            return True
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        yestday = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+        date_source = re.search(u'\d{4}-\d{1,2}-\d{1,2}', rep_time[2])
+        if date_source is not None:
+            date_source = date_source.group(0)
+            logging.error(date_source)
+            if date_source == today or date_source == yestday:
+                return True
+        return False
 
     @staticmethod
     def format_rep_date(date_source):

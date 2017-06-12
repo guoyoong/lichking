@@ -18,7 +18,7 @@ class IthomeSpider(scrapy.Spider):
             username=MONGODB_URI['username'], password=MONGODB_URI['password'])
     break_point_file_name = "ithome_break_point"
     start_page_num = 1
-    page_num = 4  # 11789
+    page_num = 20  # 11789
 
     custom_settings = {
         'COOKIES_ENABLED': False,

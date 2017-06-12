@@ -16,6 +16,8 @@ class HiapkSpider(scrapy.Spider):
     forum_list_file = 'hiapk_forum_list_file'
     source_name = '安卓论坛'
     source_short = 'hiapk'
+    max_reply = 6000
+    forum_dict = {}
 
     custom_settings = {
         'COOKIES_ENABLED': False,
@@ -25,38 +27,44 @@ class HiapkSpider(scrapy.Spider):
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.1,
         'AUTOTHROTTLE_MAX_DELAY': 0.8,
-        'DOWNLOAD_DELAY': 0.5,
+        'DOWNLOAD_DELAY': 0.2,
         'CONCURRENT_REQUESTS_PER_DOMAIN': 1,
         'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleFifoDiskQueue',
         'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.FifoMemoryQueue',
     }
 
-    def generate_forum_start_requests(self):
+    def start_requests(self):
+        # yield scrapy.Request(
+        #     'http://bbs.hiapk.com/',
+        #     callback=self.generate_forum
+        # )
         yield scrapy.Request(
-            'http://bbs.hiapk.com/',
-            callback=self.generate_forum
+            'http://bbs.hiapk.com/forum-1378-1.html',
+            dont_filter='true',
+            callback=self.generate_forum_page_list
         )
 
     def generate_forum(self, response):
         forum_list = response.xpath('//td[@class="fl_g"]//dl//dt//a/@href').extract()
         if len(forum_list) > 0:
-            all_url = ''
             for forum_url in forum_list:
-                all_url += 'http://bbs.hiapk.com/' + forum_url + '\n'
-            with open(self.forum_list_file, 'a') as f:
-                f.write(all_url)
-
-    def start_requests(self):
-        # enter forum
-        for line in fileinput.input(self.forum_list_file):
-            if not line:
-                break
-            if line.find('#') == -1 and line.strip() != '':
+                f_url = forum_url
+                if forum_url.find('bbs.hiapk.com') == -1:
+                    f_url = 'http://bbs.hiapk.com/' + forum_url
                 yield scrapy.Request(
-                    line.strip(),
-                    dont_filter='true',
-                    callback=self.generate_forum_page_list
+                    f_url,
+                    callback=self.generate_forum
                 )
+
+                if f_url in self.forum_dict:
+                    self.forum_dict[f_url] += 1
+                else:
+                    self.forum_dict[f_url] = 1
+                    yield scrapy.Request(
+                        f_url,
+                        dont_filter='true',
+                        callback=self.generate_forum_page_list
+                    )
 
     def generate_forum_page_list(self, response):
         # scrapy all tie url
@@ -83,9 +91,10 @@ class HiapkSpider(scrapy.Spider):
         try:
             forum_id = forum_id.group(1)
         except:
-            forum_id = ''
+            forum_id = re.search(u'tid=([\d]+)', response.url).group(1)
         forum_item = YHiapkItem()
         forum_item._id = forum_id
+        crawl_next = True
         if len(response.xpath('//span[@class="xi1"]/text()').extract()) > 1:
             forum_item.source = self.source_name
             forum_item.source_short = self.source_short
@@ -111,28 +120,29 @@ class HiapkSpider(scrapy.Spider):
             forum_item.content = c_soup.get_text()
             forum_item.content = StrClean.clean_comment(forum_item.content)
             forum_item.comment = self.gen_item_comment(response)
-            forum_item.last_rep_time = self.format_rep_date(rep_time_list[-1])
+            forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
+            if int(forum_item.replies) < self.max_reply:
+                crawl_next = False
+
             MongoClient.save_hiapk_forum(forum_item)
         else:
             forum_item.title = ''
-            rep_time_list = response.xpath('//div[@class="authi"]//em/text()').extract()
-            forum_item.last_rep_time = self.format_rep_date(rep_time_list[-1])
+            rep_time_list = response.xpath('//div[@class="authi"]//em').extract()
+            forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
             forum_item.comment = self.gen_item_comment(response)
             MongoClient.save_hiapk_forum(forum_item)
 
         # 是否有下一页
-        if len(response.xpath('//div[@class="pg"]//a[@class="nxt"]').extract()) > 0:
+        if len(response.xpath('//div[@class="pg"]//a[@class="nxt"]').extract()) > 0 and crawl_next:
             it168_url_pre = response.url.split('thread')[0]
             r_url = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()[0]
             yield scrapy.Request(
                 it168_url_pre + r_url,
-                dont_filter='true',
                 callback=self.generate_forum_thread
             )
 
     @staticmethod
     def format_rep_date(date_source):
-        logging.log(logging.ERROR, date_source)
         date_source = re.search(u'\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}', date_source).group(0)
         try:
             timestamp = time.mktime(time.strptime(date_source, '%Y-%m-%d %H:%M:%S'))
@@ -140,17 +150,22 @@ class HiapkSpider(scrapy.Spider):
         except:
             return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    @staticmethod
-    def gen_item_comment(response):
+    def gen_item_comment(self, response):
         comment = []
-        new_comment = []
+        new_comment = {}
+        comments_data = []
+        rep_time_list = response.xpath('//div[@class="authi"]//em').extract()
         for indexi, content in enumerate(response.xpath('//div[@class="t_fsz"]//table[1]').extract()):
             soup = BeautifulSoup(content, 'lxml')
             [s.extract() for s in soup('script')]  # remove script tag
             c = StrClean.clean_comment(soup.get_text())
-            if c != '':
-                new_comment.append(c)
-        new_comment.append(response.url)
+            if indexi >= len(rep_time_list):
+                rep_time = self.format_rep_date(rep_time_list[-1])
+            else:
+                rep_time = self.format_rep_date(rep_time_list[indexi])
+            comments_data.append({'content': c, 'reply_time': rep_time})
+        new_comment['url'] = response.url
+        new_comment['comments_data'] = comments_data
         comment.append(new_comment)
         return comment
 

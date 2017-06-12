@@ -20,7 +20,7 @@ class LenovoMobile(scrapy.Spider):
     # 将论坛的url地址都存储到文本
     allowed_domains = ["bbs.lenovomobile.cn"]
     source_name = "联想手机社区"
-    source_short = "lenovo_mobile"
+    source_short = "lenovo_mobile2"
     connect('yuqing', host=MONGODB_URI['host'], port=MONGODB_URI['port'],
             username=MONGODB_URI['username'], password=MONGODB_URI['password'])
     custom_settings = {
@@ -31,10 +31,10 @@ class LenovoMobile(scrapy.Spider):
     }
 
     forum_page_num = {
-        'zukedge': 80,
+        # 'zukedge': 80,
         'zui': 135,
-        'z2': 1014,
-        'z1': 1092
+        # 'z2': 1014,
+        # 'z1': 1092
     }
 
     def __init__(self):
@@ -43,44 +43,36 @@ class LenovoMobile(scrapy.Spider):
     # scrapy start and check page num
     def start_requests(self):
         for key in self.forum_page_num:
-            for i in range(1, self.forum_page_num.get(key)):
-                url = "http://bbs.lenovomobile.cn/" + key + "/" + str(i) + "/"
-                yield scrapy.Request(
-                    url,
-                    meta={"page_key": 1,  "forum_key": key},
-                    callback=self.generate_forum_url
-                )
+            url = "http://bbs.lenovomobile.cn/" + key + "/1/"
+            yield scrapy.Request(
+                url,
+                meta={"page_key": 1,  "forum_key": key},
+                callback=self.generate_forum_url
+            )
 
     def generate_forum_url(self, response):
-        today = datetime.datetime.now().strftime("%Y-%m-%d")
-        yestday = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
         url_xpath = response.xpath(
             '//div[@class="threadlist"]//div[@class="threadlist_title"]//a[@onclick="atarget(this)"]/@href').extract()
         rep_time_path = response.xpath(
             '//div[@class="threadlist_info"]//div[@class="lastreply"]//span/@title').extract()
         if len(rep_time_path) > 0:
-            for index in range(0, len(rep_time_path)):
-                r_time = TimeUtil.format_date(rep_time_path[index])
-                if r_time == today or r_time == yestday:
+            if self.check_rep_date(rep_time_path[0]):
+                # 请求下一页
+                page_key = int(response.meta['page_key']) + 1
+                forum_key = response.meta['forum_key']
+                yield scrapy.Request(
+                    "http://bbs.lenovomobile.cn/" + forum_key + "/" + str(page_key) + "/",
+                    meta={"page_key": page_key, "forum_key": forum_key},
+                    callback=self.generate_forum_url
+                )
+
+                # 请求帖子
+                for forum_url in url_xpath:
                     yield scrapy.Request(
                         # eg. /zui/t778232/
-                        "http://bbs.lenovomobile.cn" + url_xpath[index] + '1/',
+                        "http://bbs.lenovomobile.cn" + forum_url + '1/',
                         callback=self.generate_forum_content
                     )
-
-        # check last forum time 只抓取一天前的数据
-        # if len(rep_time_path) > 0:
-        #     r_time = TimeUtil.format_date(rep_time_path[0])
-        #     logging.log(logging.ERROR, r_time)
-        #     if r_time == today or r_time == yestday:
-        #         page_key = int(response.meta['page_key']) + 1
-        #         forum_key = response.meta['forum_key']
-        #         url = "http://bbs.lenovomobile.cn/" + forum_key + "/" + str(page_key) + "/"
-        #         yield scrapy.Request(
-        #             url,
-        #             meta={"page_key": page_key, "forum_key": forum_key},
-        #             callback=self.generate_forum_url
-        #         )
 
     def generate_forum_content(self, response):
         forum_item = YLenovoMobile2Item()
@@ -91,11 +83,10 @@ class LenovoMobile(scrapy.Spider):
         if forum_item.url.split("/")[5] == '1':
             rep_time_list = response.xpath('//div[contains(@class,"main")]/div[2]//div[contains(@id, "post_")]'
                                            '//div[@class="viewthread_top"]/em').extract()
-            try:
-                forum_item.category = forum_item.url.split("/")[3]
-            except:
-                forum_item.category = \
-                    self.get_safe_item_value(response.xpath('//*[@id="nv_forum"]/div[4]/a[3]/text()').extract())
+            category1 = self.get_safe_item_value(response.xpath('//*[@id="nv_forum"]/div[4]/a[1]/text()').extract())
+            category2 = self.get_safe_item_value(response.xpath('//*[@id="nv_forum"]/div[4]/a[2]/text()').extract())
+            category3 = self.get_safe_item_value(response.xpath('//*[@id="nv_forum"]/div[4]/a[3]/text()').extract())
+            forum_item.category = category1 + '-' + category2 + '-' + category3
             forum_item.views = response.xpath("//div[@class='viewthreadtop_storey right']/text()").extract()[0]
             forum_item.replies = response.xpath("//div[@class='viewthreadtop_storey right']/text()").extract()[1]
             forum_item.source = self.source_name
@@ -177,6 +168,18 @@ class LenovoMobile(scrapy.Spider):
             forum_item.comment = comments
             forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
             MongoClient.save_mobile_item(forum_item)
+
+    @staticmethod
+    def check_rep_date(date_source):
+        date_source = re.search(u'\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}', date_source).group(0)
+        logging.error(date_source)
+        timestamp = time.mktime(time.strptime(date_source, '%Y-%m-%d %H:%M'))
+        date_source = time.strftime('%Y-%m-%d', time.localtime(timestamp))
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        yestday = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+        if date_source == today or date_source == yestday:
+            return True
+        return False
 
     @staticmethod
     def format_rep_date(date_source):

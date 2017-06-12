@@ -56,6 +56,7 @@ class CnmoSpider(scrapy.Spider):
         )
         # yield scrapy.Request(
         #     'http://bbs.cnmo.com/forum-16313-1.html',
+        #     meta={"page_key": 1},
         #     callback=self.get_record_list
         # )
 
@@ -71,14 +72,14 @@ class CnmoSpider(scrapy.Spider):
         for a_href in forum_dict:
             yield scrapy.Request(
                 a_href,
-                dont_filter='true',
+                meta={"page_key": 1},
                 callback=self.get_record_list
             )
         # 单独域名的版块
         for a_href in self.forum_url:
             yield scrapy.Request(
                 a_href,
-                dont_filter='true',
+                meta={"page_key": 1},
                 callback=self.get_record_list
             )
 
@@ -87,11 +88,13 @@ class CnmoSpider(scrapy.Spider):
         # check 是否有新帖
         rep_time_list = response.xpath('//span[@class="fea-time"]/text()').extract()
         if len(rep_time_list) > 0:
-            # rep_time = rep_time_list[0].strip()
-            # today = datetime.datetime.now().strftime("%Y-%m-%d")
-            # yestday = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
-            # if rep_time == today or rep_time == yestday:
-            if 1 == 1:
+            # if 1 == 1:
+            rep_time = rep_time_list[0].strip()
+            today = datetime.datetime.now().strftime("%Y-%m-%d")
+            yestday = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+            page_key = int(response.meta['page_key'])
+            # 只爬第一页 或者有新回复的帖子
+            if rep_time == today or rep_time == yestday or page_key == 1:
                 flag = 1
                 # 请求下一页
                 page_box = response.xpath('//div[contains(@class, "pagebox")]//a/@title').extract()
@@ -101,7 +104,7 @@ class CnmoSpider(scrapy.Spider):
                         cnmo_url_pre = response.url.split('forum')[0]
                         yield scrapy.Request(
                             cnmo_url_pre + page_href[-1],
-                            dont_filter='true',
+                            meta={"page_key": -1},
                             callback=self.get_record_list
                         )
         # 爬取当页数据
@@ -110,7 +113,6 @@ class CnmoSpider(scrapy.Spider):
                     '//div[@class="wrap2 feaList"]//p[@class="fea-tit"]//a[@target="_blank"]/@href').extract():
                 yield scrapy.Request(
                     cnmo_url,
-                    dont_filter='true',
                     callback=self.generate_forum_page
                 )
 
@@ -127,7 +129,10 @@ class CnmoSpider(scrapy.Spider):
         forum_item.source_short = self.source_short
 
         if response.url[len(response.url) - 9:] == '-1-1.html':
-            forum_item.category = self.get_item_value(response.xpath('//div[@class="bcrumbs"]//a[1]/text()').extract())
+            category1 = self.get_item_value(response.xpath('//div[@class="bcrumbs"]//a[1]/text()').extract())
+            category2 = self.get_item_value(response.xpath('//div[@class="bcrumbs"]//a[2]/text()').extract())
+            category3 = self.get_item_value(response.xpath('//div[@class="bcrumbs"]//a[3]/text()').extract())
+            forum_item.category = category1 + '-' + category2 + '-' + category3
             forum_item.time = self.get_item_value(response.xpath('//div[@class="b_detail"]//span[1]/text()').extract())
             forum_item.views = self.get_item_value(response.xpath('//div[@class="b_detail"]//span[2]/text()').extract())
             forum_item.replies = \
@@ -149,11 +154,10 @@ class CnmoSpider(scrapy.Spider):
                 start_page = 2
                 if page_num > 50:
                     start_page = page_num - 40
-                for page in range(start_page, page_num):
+                for page in range(start_page, page_num + 1):
                     cnmo_url = response.url[:len(response.url) - 8] + str(page) + '-1.html'
                     yield scrapy.Request(
                         cnmo_url,
-                        dont_filter='true',
                         callback=self.generate_forum_page
                     )
         else:
@@ -163,6 +167,15 @@ class CnmoSpider(scrapy.Spider):
             if len(rep_time_list) > 0:
                 forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
             MongoClient.save_cnmo_forum(forum_item)
+
+    @staticmethod
+    def format_rep_date(date_source):
+        date_source = re.search(u'\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}', date_source).group(0)
+        try:
+            timestamp = time.mktime(time.strptime(date_source, '%Y-%m-%d %H:%M:%S'))
+            return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp))
+        except:
+            return ''
 
     @staticmethod
     def format_rep_date(date_source):

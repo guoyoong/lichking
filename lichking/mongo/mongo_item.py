@@ -164,7 +164,8 @@ class YZhiyooItem(Document):
     insert_time = StringField(default='')
     flag = StringField(default='')
     parse_time = StringField(default='')
-    last_rep_time = StringField(default='')
+    last_reply_time = StringField(default='')
+    v = StringField(default='0.1')
 
 
 class YHiapkItem(Document):
@@ -184,7 +185,8 @@ class YHiapkItem(Document):
     insert_time = StringField(default='')
     flag = StringField(default='')
     parse_time = StringField(default='')
-    last_rep_time = StringField(default='')
+    last_reply_time = StringField(default='')
+    v = StringField(default='0.1')
 
 
 class YAngeeksItem(Document):
@@ -204,4 +206,5 @@ class YAngeeksItem(Document):
     insert_time = StringField(default='')
     flag = StringField(default='')
     parse_time = StringField(default='')
-    last_rep_time = StringField(default='')
+    last_reply_time = StringField(default='')
+    v = StringField(default='0.1')

@@ -172,7 +172,7 @@ class MongoClient:
                     MongoClient.remove_duplicate_comment(items[0].comment, forum_item.comment[0])
                 insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 items.update_one(set__insert_time=insert_time)
-                items.update_one(set__last_rep_time=forum_item.last_rep_time)
+                items.update_one(set__last_reply_time=forum_item.last_reply_time)
                 items.update_one(set__comment=n_comment)
 
     @staticmethod
@@ -188,7 +188,7 @@ class MongoClient:
                     MongoClient.remove_duplicate_comment(items[0].comment, forum_item.comment[0])
                 insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 items.update_one(set__insert_time=insert_time)
-                items.update_one(set__last_rep_time=forum_item.last_rep_time)
+                items.update_one(set__last_reply_time=forum_item.last_reply_time)
                 items.update_one(set__comment=n_comment)
 
     @staticmethod
@@ -204,7 +204,7 @@ class MongoClient:
                     MongoClient.remove_duplicate_comment(items[0].comment, forum_item.comment[0])
                 insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 items.update_one(set__insert_time=insert_time)
-                items.update_one(set__last_rep_time=forum_item.last_rep_time)
+                items.update_one(set__last_reply_time=forum_item.last_reply_time)
                 items.update_one(set__comment=n_comment)
 
     # 评论去重

@@ -49,11 +49,11 @@ class It168Spider(scrapy.Spider):
             'http://benyouhui.it168.com/forum.php',
             callback=self.generate_forum_url_list
         )
-        yield scrapy.Request(
-            'http://benyouhui.it168.com/forum-963-1.html',
-            dont_filter='true',
-            callback=self.generate_forum_page_list
-        )
+        # yield scrapy.Request(
+        #     'http://benyouhui.it168.com/forum-962-1.html',
+        #     meta={"page_key": 1},
+        #     callback=self.generate_forum_page_list
+        # )
 
     def generate_forum_url_list(self, response):
         forum_list = response.xpath('//td[@class="fl_g"]//dl//dt//a/@href').extract()
@@ -67,7 +67,6 @@ class It168Spider(scrapy.Spider):
                         forum_url = it168_url_pre + forum_url
                     yield scrapy.Request(
                         forum_url,
-                        dont_filter='true',
                         callback=self.generate_forum_url_list
                     )
                     if forum_url in self.forum_dict:
@@ -77,33 +76,37 @@ class It168Spider(scrapy.Spider):
                         self.forum_dict[forum_url] = 1
                         yield scrapy.Request(
                             forum_url,
-                            dont_filter='true',
+                            meta={"page_key": 1},
                             callback=self.generate_forum_page_list
                         )
 
     def generate_forum_page_list(self, response):
         # scrapy all tie url
         thread_list = response.xpath('//a[@class="xst"]/@href').extract()
+        rep_time_list = response.xpath('//p[@class="replyer"]').extract()
         it168_url_pre = response.url.split('forum')[0]
         if it168_url_pre[-1] != '/':
             it168_url_pre += '/'
-        logging.error(response.url)
-        logging.error(len(thread_list))
         if len(thread_list) > 0:
-            for thread_url in thread_list:
-                yield scrapy.Request(
-                    it168_url_pre + thread_url,
-                    dont_filter='true',
-                    callback=self.generate_forum_thread
-                )
-        # check 是否有下一页
-        pg_bar = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()
-        if len(pg_bar) > 0:
-            yield scrapy.Request(
-                it168_url_pre + pg_bar[0],
-                dont_filter='true',
-                callback=self.generate_forum_page_list
-            )
+            rep_time = self.format_rep_date_short(rep_time_list[0].strip())
+            today = datetime.datetime.now().strftime("%Y-%m-%d")
+            yestday = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+            page_key = int(response.meta['page_key'])
+            logging.error(rep_time)
+            if rep_time == today or rep_time == yestday or page_key == 1:
+                for thread_url in thread_list:
+                    yield scrapy.Request(
+                        it168_url_pre + thread_url,
+                        callback=self.generate_forum_thread
+                    )
+                # check 是否有下一页
+                pg_bar = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()
+                if len(pg_bar) > 0:
+                    yield scrapy.Request(
+                        it168_url_pre + pg_bar[0],
+                        meta={"page_key": -1},
+                        callback=self.generate_forum_page_list
+                    )
 
     def generate_forum_thread(self, response):
         forum_id = re.search(u'thread-([\d]+)', response.url)
@@ -155,7 +158,6 @@ class It168Spider(scrapy.Spider):
             r_url = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()[0]
             yield scrapy.Request(
                 it168_url_pre + r_url,
-                dont_filter='true',
                 callback=self.generate_forum_thread
             )
 
@@ -167,6 +169,15 @@ class It168Spider(scrapy.Spider):
             return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp))
         except:
             return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    @staticmethod
+    def format_rep_date_short(date_source):
+        date_source = re.search(u'\d{4}-\d{1,2}-\d{1,2}', date_source).group(0)
+        try:
+            timestamp = time.mktime(time.strptime(date_source, '%Y-%m-%d'))
+            return time.strftime('%Y-%m-%d', time.localtime(timestamp))
+        except:
+            return datetime.datetime.now().strftime("%Y-%m-%d")
 
     def gen_item_comment(self, response):
         comment = []

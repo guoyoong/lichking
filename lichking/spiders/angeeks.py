@@ -9,13 +9,15 @@ from bs4 import BeautifulSoup
 from lichking.mongo.mongo_client import *
 import logging
 
+
 class AngeeksSpider(scrapy.Spider):
     name = "angeeks"
     allowed_domains = ["angeeks.com"]
     start_urls = ['http://angeeks.com/']
-    forum_list_file = 'angeeks_forum_list_file'
     source_name = '安极论坛'
     source_short = 'angeeks'
+    max_reply = 6000
+    forum_dict = {}
 
     custom_settings = {
         'COOKIES_ENABLED': False,
@@ -25,7 +27,7 @@ class AngeeksSpider(scrapy.Spider):
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.5,
         'AUTOTHROTTLE_MAX_DELAY': 0.8,
-        'DOWNLOAD_DELAY': 0.8,
+        'DOWNLOAD_DELAY': 0.1,
         'CONCURRENT_REQUESTS_PER_DOMAIN': 1,
         'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleFifoDiskQueue',
         'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.FifoMemoryQueue',
@@ -35,37 +37,37 @@ class AngeeksSpider(scrapy.Spider):
         },
     }
 
-    def start_requests_forum(self):
+    def start_requests(self):
         yield scrapy.Request(
             'http://bbs.angeeks.com/forum.php',
             callback=self.generate_forum
         )
+        # yield scrapy.Request(
+        #     'http://bbs.angeeks.com/forum-328-1.html',
+        #     callback=self.generate_forum_page_list
+        # )
 
     def generate_forum(self, response):
         forum_list = response.xpath('//td[@class="fl_g"]//dl//dt//a/@href').extract()
         if len(forum_list) > 0:
-            all_url = ''
             for forum_url in forum_list:
                 f_url = forum_url
                 if forum_url.find('angeeks.com') == -1:
                     f_url = 'http://bbs.angeeks.com/' + forum_url
-                all_url += f_url + '\n'
                 yield scrapy.Request(
-                    forum_url,
+                    f_url,
                     callback=self.generate_forum
                 )
-            with open(self.forum_list_file, 'a') as f:
-                f.write(all_url)
 
-    def start_requests(self):
-        for line in fileinput.input(self.forum_list_file):
-            if not line:
-                break
-            if line.find('#') == -1 and line.strip() != '':
-                yield scrapy.Request(
-                    line.strip(),
-                    callback=self.generate_forum_page_list
-                )
+                if f_url in self.forum_dict:
+                    self.forum_dict[forum_url] += 1
+                else:
+                    self.forum_dict[f_url] = 1
+                    yield scrapy.Request(
+                        f_url,
+                        dont_filter='true',
+                        callback=self.generate_forum_page_list
+                    )
 
     def generate_forum_page_list(self, response):
         # scrapy all tie url
@@ -91,9 +93,10 @@ class AngeeksSpider(scrapy.Spider):
         try:
             forum_id = forum_id.group(1)
         except:
-            forum_id = ''
+            forum_id = re.search(u'tid=([\d]+)', response.url).group(1)
         forum_item = YAngeeksItem()
         forum_item._id = forum_id
+        crawl_next = True
         if len(response.xpath('//span[@class="xi1"]/text()').extract()) > 1:
             forum_item.source = self.source_name
             forum_item.source_short = self.source_short
@@ -119,21 +122,23 @@ class AngeeksSpider(scrapy.Spider):
             forum_item.content = c_soup.get_text()
             forum_item.content = StrClean.clean_comment(forum_item.content)
             forum_item.comment = self.gen_item_comment(response)
-            forum_item.last_rep_time = self.format_rep_date(rep_time_list[-1])
+            forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
+            if int(forum_item.replies) < self.max_reply:
+                crawl_next = False
+
             MongoClient.save_angeeks_forum(forum_item)
         else:
             forum_item.title = ''
             rep_time_list = response.xpath('//div[@class="authi"]//em/text()').extract()
-            forum_item.last_rep_time = self.format_rep_date(rep_time_list[-1])
+            forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
             forum_item.comment = self.gen_item_comment(response)
             MongoClient.save_angeeks_forum(forum_item)
 
         # 是否有下一页
-        if len(response.xpath('//div[@class="pg"]//a[@class="nxt"]').extract()) > 0:
+        if len(response.xpath('//div[@class="pg"]//a[@class="nxt"]').extract()) > 0 and crawl_next:
             r_url = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()[0]
             yield scrapy.Request(
                 r_url,
-                dont_filter='true',
                 callback=self.generate_forum_thread
             )
 
@@ -146,17 +151,22 @@ class AngeeksSpider(scrapy.Spider):
         except:
             return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    @staticmethod
-    def gen_item_comment(response):
+    def gen_item_comment(self, response):
         comment = []
-        new_comment = []
+        new_comment = {}
+        comments_data = []
+        rep_time_list = response.xpath('//div[@class="authi"]//em').extract()
         for indexi, content in enumerate(response.xpath('//div[@class="t_fsz"]//table[1]').extract()):
             soup = BeautifulSoup(content, 'lxml')
             [s.extract() for s in soup('script')]  # remove script tag
             c = StrClean.clean_comment(soup.get_text())
-            if c != '':
-                new_comment.append(c)
-        new_comment.append(response.url)
+            if indexi >= len(rep_time_list):
+                rep_time = self.format_rep_date(rep_time_list[-1])
+            else:
+                rep_time = self.format_rep_date(rep_time_list[indexi])
+            comments_data.append({'content': c, 'reply_time': rep_time})
+        new_comment['url'] = response.url
+        new_comment['comments_data'] = comments_data
         comment.append(new_comment)
         return comment
 

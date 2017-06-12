@@ -32,9 +32,14 @@ class Ihei5Spider(scrapy.Spider):
     }
 
     def start_requests(self):
+        # yield scrapy.Request(
+        #     'http://bbs.ihei5.com/',
+        #     callback=self.generate_forum_url_list
+        # )
         yield scrapy.Request(
-            'http://bbs.ihei5.com/',
-            callback=self.generate_forum_url_list
+            'http://bbs.ihei5.com/forum-39-1.html',
+            meta={"page_key": 1},
+            callback=self.generate_forum_page_list
         )
 
     def generate_forum_url_list(self, response):
@@ -55,6 +60,7 @@ class Ihei5Spider(scrapy.Spider):
                     self.forum_dict[a_tag] = 1
                     yield scrapy.Request(
                         a_tag,
+                        meta={"page_key": 1},
                         callback=self.generate_forum_page_list
                     )
 
@@ -70,9 +76,10 @@ class Ihei5Spider(scrapy.Spider):
                 r_time = TimeUtil.format_date_short(r_time.group(0))
                 timestamp = time.mktime(time.strptime(r_time, '%Y-%m-%d'))
                 r_time = time.strftime('%Y-%m-%d', time.localtime(timestamp))
+                page_key = int(response.meta['page_key'])
+                # if 1 == 1:
                 # 是否有新回帖
-                # if r_time == today or r_time == yestday:
-                if 1 == 1:
+                if r_time == today or r_time == yestday or page_key == 1:
                     yield scrapy.Request(
                         thread_list[i],
                         callback=self.generate_forum_thread
@@ -83,6 +90,7 @@ class Ihei5Spider(scrapy.Spider):
                         r_url = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()[0]
                         yield scrapy.Request(
                             r_url,
+                            meta={"page_key": -1},
                             callback=self.generate_forum_page_list
                         )
 
@@ -101,8 +109,10 @@ class Ihei5Spider(scrapy.Spider):
             forum_item.source = self.source_name
             forum_item.source_short = self.source_short
             forum_item.url = response.url
-            forum_item.category = self.get_item_value(
-                response.xpath('//div[@id="pt"]//div[@class="z"]//a[3]/text()').extract())
+            category1 = self.get_item_value(response.xpath('//div[@id="pt"]//div[@class="z"]//a[1]/text()').extract())
+            category2 = self.get_item_value(response.xpath('//div[@id="pt"]//div[@class="z"]//a[2]/text()').extract())
+            category3 = self.get_item_value(response.xpath('//div[@id="pt"]//div[@class="z"]//a[3]/text()').extract())
+            forum_item.category = category1 + '-' + category2 + '-' + category3
             forum_item.time = self.format_rep_date(rep_time_list[0])
             forum_item.views = self.get_item_value(response.xpath('//span[@class="ico_see"]/text()').extract())
             forum_item.replies = \
