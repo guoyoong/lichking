@@ -207,6 +207,38 @@ class MongoClient:
                 items.update_one(set__last_reply_time=forum_item.last_reply_time)
                 items.update_one(set__comment=n_comment)
 
+    @staticmethod
+    def save_shayu_forum(forum_item):
+        forum_item.insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        forum_item.flag = '-1'
+        if forum_item.title != '':
+            forum_item.save()
+        else:
+            items = YShayuForumItem.objects(_id=forum_item._id)
+            if len(items) > 0:  # not
+                n_comment = \
+                    MongoClient.remove_duplicate_comment(items[0].comment, forum_item.comment[0])
+                insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                items.update_one(set__insert_time=insert_time)
+                items.update_one(set__last_reply_time=forum_item.last_reply_time)
+                items.update_one(set__comment=n_comment)
+
+    @staticmethod
+    def save_gfan_forum(forum_item):
+        forum_item.insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        forum_item.flag = '-1'
+        if forum_item.title != '':
+            forum_item.save()
+        else:
+            items = YGfanForumItem.objects(_id=forum_item._id)
+            if len(items) > 0:  # not
+                n_comment = \
+                    MongoClient.remove_duplicate_comment(items[0].comment, forum_item.comment[0])
+                insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                items.update_one(set__insert_time=insert_time)
+                items.update_one(set__last_reply_time=forum_item.last_reply_time)
+                items.update_one(set__comment=n_comment)
+
     # 评论去重
     @staticmethod
     def remove_duplicate_comment(source_comments, new_comment):

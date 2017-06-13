@@ -75,6 +75,14 @@ class ZhiyooSpider(scrapy.Spider):
                     )
 
     def generate_forum_page_list(self, response):
+        # check 是否有下一页
+        pg_bar = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()
+        if len(pg_bar) > 0:
+            yield scrapy.Request(
+                pg_bar[0],
+                callback=self.generate_forum_page_list
+            )
+
         # scrapy all tie url
         thread_list = response.xpath('//a[@class="xst"]/@href').extract()
         logging.error(response.url)
@@ -85,13 +93,6 @@ class ZhiyooSpider(scrapy.Spider):
                     thread_url,
                     callback=self.generate_forum_thread
                 )
-        # check 是否有下一页
-        pg_bar = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()
-        if len(pg_bar) > 0:
-            yield scrapy.Request(
-                pg_bar[0],
-                callback=self.generate_forum_page_list
-            )
 
     def generate_forum_thread(self, response):
         forum_id = re.search(u'thread-([\d]+)', response.url)
@@ -130,7 +131,7 @@ class ZhiyooSpider(scrapy.Spider):
             forum_item.content = StrClean.clean_comment(forum_item.content)
             forum_item.comment = self.gen_item_comment(response)
             forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
-            if int(forum_item.replies) < self.max_reply:
+            if int(forum_item.replies) > self.max_reply:
                 crawl_next = False
 
             MongoClient.save_zhiyoo_forum(forum_item)

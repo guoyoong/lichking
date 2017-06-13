@@ -26,9 +26,9 @@ class AngeeksSpider(scrapy.Spider):
         'AUTOTHROTTLE_DEBUG': False,
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.5,
-        'AUTOTHROTTLE_MAX_DELAY': 0.8,
-        'DOWNLOAD_DELAY': 0.1,
-        'CONCURRENT_REQUESTS_PER_DOMAIN': 1,
+        'AUTOTHROTTLE_MAX_DELAY': 1,
+        'DOWNLOAD_DELAY': 0.5,
+        'CONCURRENT_REQUESTS_PER_DOMAIN': 3,
         'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleFifoDiskQueue',
         'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.FifoMemoryQueue',
         'DOWNLOADER_MIDDLEWARES': {
@@ -70,6 +70,15 @@ class AngeeksSpider(scrapy.Spider):
                     )
 
     def generate_forum_page_list(self, response):
+
+        # check 是否有下一页
+        pg_bar = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()
+        if len(pg_bar) > 0:
+            yield scrapy.Request(
+                pg_bar[0],
+                callback=self.generate_forum_page_list
+            )
+
         # scrapy all tie url
         thread_list = response.xpath('//a[contains(@class,"xst")]/@href').extract()
         logging.error(response.url)
@@ -80,13 +89,6 @@ class AngeeksSpider(scrapy.Spider):
                     thread_url,
                     callback=self.generate_forum_thread
                 )
-        # check 是否有下一页
-        pg_bar = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()
-        if len(pg_bar) > 0:
-            yield scrapy.Request(
-                pg_bar[0],
-                callback=self.generate_forum_page_list
-            )
 
     def generate_forum_thread(self, response):
         forum_id = re.search(u'thread-([\d]+)', response.url)
@@ -123,7 +125,7 @@ class AngeeksSpider(scrapy.Spider):
             forum_item.content = StrClean.clean_comment(forum_item.content)
             forum_item.comment = self.gen_item_comment(response)
             forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
-            if int(forum_item.replies) < self.max_reply:
+            if int(forum_item.replies) > self.max_reply:
                 crawl_next = False
 
             MongoClient.save_angeeks_forum(forum_item)

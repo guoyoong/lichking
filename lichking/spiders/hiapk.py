@@ -34,15 +34,15 @@ class HiapkSpider(scrapy.Spider):
     }
 
     def start_requests(self):
-        # yield scrapy.Request(
-        #     'http://bbs.hiapk.com/',
-        #     callback=self.generate_forum
-        # )
         yield scrapy.Request(
-            'http://bbs.hiapk.com/forum-1378-1.html',
-            dont_filter='true',
-            callback=self.generate_forum_page_list
+            'http://bbs.hiapk.com/',
+            callback=self.generate_forum
         )
+        # yield scrapy.Request(
+        #     'http://bbs.hiapk.com/forum-1378-1.html',
+        #     dont_filter='true',
+        #     callback=self.generate_forum_page_list
+        # )
 
     def generate_forum(self, response):
         forum_list = response.xpath('//td[@class="fl_g"]//dl//dt//a/@href').extract()
@@ -67,9 +67,17 @@ class HiapkSpider(scrapy.Spider):
                     )
 
     def generate_forum_page_list(self, response):
+        hiapk_url_pre = response.url.split('forum')[0]
+        # check 是否有下一页
+        pg_bar = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()
+        if len(pg_bar) > 0:
+            yield scrapy.Request(
+                hiapk_url_pre + pg_bar[0],
+                callback=self.generate_forum_page_list
+            )
+
         # scrapy all tie url
         thread_list = response.xpath('//a[@class="xst"]/@href').extract()
-        hiapk_url_pre = response.url.split('forum')[0]
         logging.error(response.url)
         logging.error(len(thread_list))
         if len(thread_list) > 0:
@@ -78,13 +86,6 @@ class HiapkSpider(scrapy.Spider):
                     hiapk_url_pre + thread_url,
                     callback=self.generate_forum_thread
                 )
-        # check 是否有下一页
-        pg_bar = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()
-        if len(pg_bar) > 0:
-            yield scrapy.Request(
-                hiapk_url_pre + pg_bar[0],
-                callback=self.generate_forum_page_list
-            )
 
     def generate_forum_thread(self, response):
         forum_id = re.search(u'thread-([\d]+)', response.url)
@@ -121,7 +122,7 @@ class HiapkSpider(scrapy.Spider):
             forum_item.content = StrClean.clean_comment(forum_item.content)
             forum_item.comment = self.gen_item_comment(response)
             forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
-            if int(forum_item.replies) < self.max_reply:
+            if int(forum_item.replies) > self.max_reply:
                 crawl_next = False
 
             MongoClient.save_hiapk_forum(forum_item)

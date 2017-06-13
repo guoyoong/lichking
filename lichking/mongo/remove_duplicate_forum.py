@@ -2,7 +2,7 @@
 
 import re
 
-f = open('D:\source\lichking\\hiapk_test', 'r')
+f = open('D:\source\lichking\\gfan_forum_test', 'r')
 dict = {}
 for line in f:
     s = line
@@ -18,7 +18,7 @@ f.close()
 i = 0
 for key in dict:
     i = i+1
-    print str(i)+':'+key + '.......' + str(dict[key])
+    # print str(i)+':'+key + '.......' + str(dict[key])
     if dict[key] > 1:
         print key + '.......' + str(dict[key])
 
