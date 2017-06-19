@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 import scrapy
 from lichking.mongo.mongo_client import *
-from lichking.settings import MONGODB_URI
-import re
 from lichking.util.time_util import *
 from lichking.util.str_clean import *
 from bs4 import BeautifulSoup
+import logging
 
 
 class IthomeSpider(scrapy.Spider):
@@ -14,8 +13,6 @@ class IthomeSpider(scrapy.Spider):
     start_urls = ['ithome.com']
     source_name = "IT之家"
     source_short = "ithome2"
-    connect('yuqing', host=MONGODB_URI['host'], port=MONGODB_URI['port'],
-            username=MONGODB_URI['username'], password=MONGODB_URI['password'])
     break_point_file_name = "ithome_break_point"
     start_page_num = 1
     page_num = 20  # 11789
@@ -27,8 +24,8 @@ class IthomeSpider(scrapy.Spider):
         'AUTOTHROTTLE_DEBUG': False,
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.1,
-        'AUTOTHROTTLE_MAX_DELAY': 0.05,
-        'DOWNLOAD_DELAY': 0.1,
+        'AUTOTHROTTLE_MAX_DELAY': 0.1,
+        'DOWNLOAD_DELAY': 0.5,
         'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleFifoDiskQueue',
         'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.FifoMemoryQueue',
         'DOWNLOADER_MIDDLEWARES': {

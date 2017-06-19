@@ -4,7 +4,7 @@ from apscheduler.schedulers.twisted import TwistedScheduler
 from scrapy.crawler import CrawlerRunner
 from twisted.internet import reactor
 from scrapy.utils.log import configure_logging
-from apscheduler.triggers.cron import *
+from apscheduler.triggers.interval import *
 from lichking.spiders.ithome import *
 from lichking.spiders.cnmo_forum import *
 from lichking.spiders.ihei5 import *
@@ -25,8 +25,9 @@ date_now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 def trigger_spider_job(spider, seconds=10):
     scheduler = TwistedScheduler()
-    # 每8个小时 执行一次
-    trigger = CronTrigger(hour=0, minute=26, second=seconds)
+    start_time = datetime.datetime.now() + datetime.timedelta(seconds=seconds)
+    trigger = IntervalTrigger(hours=8,
+                              start_date=start_time)
     scheduler.add_job(runner.crawl, trigger, args=[spider])
     scheduler.start()
 

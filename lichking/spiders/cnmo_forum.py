@@ -19,8 +19,6 @@ class CnmoSpider(scrapy.Spider):
     start_urls = ['http://bbs.cnmo.com/boardmap/']
     source_name = "手机中国论坛"
     source_short = "cnmo_forum2"
-    connect('yuqing', host=MONGODB_URI['host'], port=MONGODB_URI['port'],
-            username=MONGODB_URI['username'], password=MONGODB_URI['password'])
     # 有几个版块特殊，有单独域名
     forum_url = ['http://dopodbbs.cnmo.com/forum-6-1.html', 'http://htcbbs.cnmo.com/forum-12788-1.html',
                  'http://elifebbs.cnmo.com/forum-16198-1.html', 'http://lenovobbs.cnmo.com/forum-14788-1.html',
@@ -54,6 +52,7 @@ class CnmoSpider(scrapy.Spider):
             dont_filter='true',
             callback=self.generate_forum_url_list
         )
+        # 供测试版块
         # yield scrapy.Request(
         #     'http://bbs.cnmo.com/forum-16313-1.html',
         #     meta={"page_key": 1},
@@ -73,6 +72,7 @@ class CnmoSpider(scrapy.Spider):
             yield scrapy.Request(
                 a_href,
                 meta={"page_key": 1},
+                dont_filter='true',
                 callback=self.get_record_list
             )
         # 单独域名的版块
@@ -80,6 +80,7 @@ class CnmoSpider(scrapy.Spider):
             yield scrapy.Request(
                 a_href,
                 meta={"page_key": 1},
+                dont_filter='true',
                 callback=self.get_record_list
             )
 
@@ -146,14 +147,14 @@ class CnmoSpider(scrapy.Spider):
             rep_time_list = response.xpath('//div[@class="bcom_detail"]//span[2]/text()').extract()
             if len(rep_time_list) > 0:
                 forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
-            MongoClient.save_cnmo_forum(forum_item)
+            MongoClient.save_common_forum(forum_item, YCnmoForum2Item)
             if len(response.xpath('//span[@class="bornone"]')) > 0:
                 page_num = response.xpath('//div[@class="List-pages fr"]//a/text()').extract()[-3]
                 page_num = int(page_num.replace('.', ''))
                 # 回复太多的帖子 大部分为水贴或者活动帖子，每天只爬最后二十页
                 start_page = 2
-                if page_num > 50:
-                    start_page = page_num - 40
+                if page_num > 40:
+                    start_page = page_num - 20
                 for page in range(start_page, page_num + 1):
                     cnmo_url = response.url[:len(response.url) - 8] + str(page) + '-1.html'
                     yield scrapy.Request(
@@ -166,7 +167,7 @@ class CnmoSpider(scrapy.Spider):
             rep_time_list = response.xpath('//div[@class="bcom_detail"]//span[2]/text()').extract()
             if len(rep_time_list) > 0:
                 forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
-            MongoClient.save_cnmo_forum(forum_item)
+            MongoClient.save_common_forum(forum_item, YCnmoForum2Item)
 
     @staticmethod
     def format_rep_date(date_source):

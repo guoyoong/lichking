@@ -1,7 +1,7 @@
 1.运行
     cd /home/bastion/spider_lenovo/lichking
     nohup scrapy crawl ithome > ../spider_logs/ithome.log &
-    nohup scrapy crawl zhiyoo > ../spider_logs/zhiyoo.log &
+    nohup scrapy crawl lenovo_mobile > ../spider_logs/lenovo_mobile.log &
     nohup python run.py >> /home/work/spider_lenovo/spider_daily.log &
 2.依赖
     sudo pip install -t /usr/local/lib/python2.7/site-packages/

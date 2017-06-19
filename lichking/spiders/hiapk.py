@@ -16,7 +16,7 @@ class HiapkSpider(scrapy.Spider):
     forum_list_file = 'hiapk_forum_list_file'
     source_name = '安卓论坛'
     source_short = 'hiapk'
-    max_reply = 6000
+    max_reply = 400
     forum_dict = {}
 
     custom_settings = {
@@ -36,6 +36,7 @@ class HiapkSpider(scrapy.Spider):
     def start_requests(self):
         yield scrapy.Request(
             'http://bbs.hiapk.com/',
+            meta={"page_key": 1},
             callback=self.generate_forum
         )
         # yield scrapy.Request(
@@ -51,41 +52,35 @@ class HiapkSpider(scrapy.Spider):
                 f_url = forum_url
                 if forum_url.find('bbs.hiapk.com') == -1:
                     f_url = 'http://bbs.hiapk.com/' + forum_url
+
                 yield scrapy.Request(
                     f_url,
+                    meta={"page_key": 1},
                     callback=self.generate_forum
                 )
 
-                if f_url in self.forum_dict:
-                    self.forum_dict[f_url] += 1
-                else:
-                    self.forum_dict[f_url] = 1
-                    yield scrapy.Request(
-                        f_url,
-                        dont_filter='true',
-                        callback=self.generate_forum_page_list
-                    )
-
-    def generate_forum_page_list(self, response):
         hiapk_url_pre = response.url.split('forum')[0]
         # check 是否有下一页
         pg_bar = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()
+        page_key = int(response.meta['page_key'])
+        rep_time_list = response.xpath('//tr/td[@class="by"]/em/a').extract()
         if len(pg_bar) > 0:
-            yield scrapy.Request(
-                hiapk_url_pre + pg_bar[0],
-                callback=self.generate_forum_page_list
-            )
-
-        # scrapy all tie url
-        thread_list = response.xpath('//a[@class="xst"]/@href').extract()
-        logging.error(response.url)
-        logging.error(len(thread_list))
-        if len(thread_list) > 0:
-            for thread_url in thread_list:
+            if page_key == 1 or self.check_rep_date(rep_time_list):
                 yield scrapy.Request(
-                    hiapk_url_pre + thread_url,
-                    callback=self.generate_forum_thread
+                    hiapk_url_pre + pg_bar[0],
+                    meta={"page_key": -1},
+                    callback=self.generate_forum
                 )
+
+                # scrapy all tie url
+                thread_list = response.xpath('//a[@class="xst"]/@href').extract()
+                logging.error(len(thread_list))
+                if len(thread_list) > 0:
+                    for thread_url in thread_list:
+                        yield scrapy.Request(
+                            hiapk_url_pre + thread_url,
+                            callback=self.generate_forum_thread
+                        )
 
     def generate_forum_thread(self, response):
         forum_id = re.search(u'thread-([\d]+)', response.url)
@@ -96,7 +91,7 @@ class HiapkSpider(scrapy.Spider):
         forum_item = YHiapkItem()
         forum_item._id = forum_id
         crawl_next = True
-        if len(response.xpath('//span[@class="xi1"]/text()').extract()) > 1:
+        if len(response.xpath('//a[@class="prev"]').extract()) == 0:
             forum_item.source = self.source_name
             forum_item.source_short = self.source_short
             forum_item.url = response.url
@@ -125,13 +120,13 @@ class HiapkSpider(scrapy.Spider):
             if int(forum_item.replies) > self.max_reply:
                 crawl_next = False
 
-            MongoClient.save_hiapk_forum(forum_item)
+            MongoClient.save_common_forum(forum_item, YHiapkItem)
         else:
             forum_item.title = ''
             rep_time_list = response.xpath('//div[@class="authi"]//em').extract()
             forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
             forum_item.comment = self.gen_item_comment(response)
-            MongoClient.save_hiapk_forum(forum_item)
+            MongoClient.save_common_forum(forum_item, YHiapkItem)
 
         # 是否有下一页
         if len(response.xpath('//div[@class="pg"]//a[@class="nxt"]').extract()) > 0 and crawl_next:
@@ -176,3 +171,18 @@ class HiapkSpider(scrapy.Spider):
             return forum_arr[0].strip()
         else:
             return ''
+
+    @staticmethod
+    def check_rep_date(rep_time_list):
+        try:
+            date_source = rep_time_list[0]
+            date_source = re.search(u'\d{4}-\d{1,2}-\d{1,2}', date_source).group(0)
+            today = datetime.datetime.now().strftime("%Y-%m-%d")
+            yestday = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+            timestamp = time.mktime(time.strptime(date_source, '%Y-%m-%d'))
+            date_source = time.strftime('%Y-%m-%d', time.localtime(timestamp))
+            if date_source == today or date_source == yestday:
+                return True
+        except:
+            return False
+        return False

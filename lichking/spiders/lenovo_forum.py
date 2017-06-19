@@ -22,8 +22,6 @@ class LenovoClub(scrapy.Spider):
     allowed_domains = ["club.lenovo.com.cn"]
     source_name = "联想社区"
     source_short = "lenovo_forum2"
-    connect('yuqing', host=MONGODB_URI['host'], port=MONGODB_URI['port'],
-            username=MONGODB_URI['username'], password=MONGODB_URI['password'])
     custom_settings = {
         'DOWNLOAD_DELAY': 0.01,
         'AUTOTHROTTLE_ENABLED': True,
@@ -60,7 +58,6 @@ class LenovoClub(scrapy.Spider):
             for h1a_forum_url in response.xpath('//div[@class="Forumhome_listbox"]//dd//h1//a//@href').extract():
                 yield scrapy.Request(
                     h1a_forum_url,
-                    dont_filter='true',
                     callback=self.generate_forum_content
                 )
 
@@ -133,7 +130,7 @@ class LenovoClub(scrapy.Spider):
                 self.save_item_value(forum_item, 'replies',
                                      response.xpath('//div[@class="thinktitleright"]//span[1]//text()').extract())
             forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
-            MongoClient.save_forum_item(forum_item)
+            MongoClient.save_common_forum(forum_item, YLenovoForum2Item)
 
             # 抓取最后几页
             forum_url = response.url[:len(response.url) - 8] + '1-1.html'
@@ -142,9 +139,9 @@ class LenovoClub(scrapy.Spider):
                 last_page = response.xpath('//div[@class="pg"]//label//span/text()').extract()[0]
                 last_page = re.search(u'[\d]+', last_page).group(0)
                 start_page = 2
-                if int(last_page) > 100:
-                    start_page = int(last_page) - 30
-                    for i in range(1, 20):
+                if int(last_page) > 40:
+                    start_page = int(last_page) - 20
+                    for i in range(1, 10):
                         url = response.url[:len(response.url) - 8] + str(i) + '-1.html'
                         forum_url += '\n' + url
                         yield scrapy.Request(
@@ -176,7 +173,7 @@ class LenovoClub(scrapy.Spider):
             comments.append(new_comment)
             forum_item.comment = comments
             forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
-            MongoClient.save_forum_item(forum_item)
+            MongoClient.save_common_forum(forum_item, YLenovoForum2Item)
 
     @staticmethod
     def check_rep_date(rep_time):

@@ -21,8 +21,6 @@ class LenovoMobile(scrapy.Spider):
     allowed_domains = ["bbs.lenovomobile.cn"]
     source_name = "联想手机社区"
     source_short = "lenovo_mobile2"
-    connect('yuqing', host=MONGODB_URI['host'], port=MONGODB_URI['port'],
-            username=MONGODB_URI['username'], password=MONGODB_URI['password'])
     custom_settings = {
         'DOWNLOAD_DELAY': 0.01,
         'AUTOTHROTTLE_ENABLED': True,
@@ -31,10 +29,10 @@ class LenovoMobile(scrapy.Spider):
     }
 
     forum_page_num = {
-        # 'zukedge': 80,
+        'zukedge': 80,
         'zui': 135,
-        # 'z2': 1014,
-        # 'z1': 1092
+        'z2': 1014,
+        'z1': 1092
     }
 
     def __init__(self):
@@ -55,10 +53,10 @@ class LenovoMobile(scrapy.Spider):
             '//div[@class="threadlist"]//div[@class="threadlist_title"]//a[@onclick="atarget(this)"]/@href').extract()
         rep_time_path = response.xpath(
             '//div[@class="threadlist_info"]//div[@class="lastreply"]//span/@title').extract()
+        page_key = int(response.meta['page_key']) + 1
         if len(rep_time_path) > 0:
-            if self.check_rep_date(rep_time_path[0]):
+            if self.check_rep_date(rep_time_path[0]) or page_key == 1:
                 # 请求下一页
-                page_key = int(response.meta['page_key']) + 1
                 forum_key = response.meta['forum_key']
                 yield scrapy.Request(
                     "http://bbs.lenovomobile.cn/" + forum_key + "/" + str(page_key) + "/",
@@ -124,7 +122,7 @@ class LenovoMobile(scrapy.Spider):
                 forum_item.last_reply_time = forum_item.time
             else:
                 forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
-            MongoClient.save_mobile_item(forum_item)
+            MongoClient.save_common_forum(forum_item, YLenovoMobile2Item)
 
             forum_url = response.url
             forum_page_bar = response.xpath('//div[@class="pg"]').extract()
@@ -134,9 +132,9 @@ class LenovoMobile(scrapy.Spider):
                 last_page = re.search(u'[\d]+', last_page).group(0)
 
                 start_page = 2
-                # 水帖，只爬最后40页
-                if int(last_page) > 50:
-                    start_page = int(last_page) - 30
+                # 水帖，只爬最后30页
+                if int(last_page) > 40:
+                    start_page = int(last_page) - 20
                 for i in range(start_page, int(last_page) + 1):
                     url = response.url[:len(response.url) - 2] + str(i) + '/'
                     forum_url += '\n' + url
@@ -167,7 +165,7 @@ class LenovoMobile(scrapy.Spider):
             comments.append(new_comment)
             forum_item.comment = comments
             forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
-            MongoClient.save_mobile_item(forum_item)
+            MongoClient.save_common_forum(forum_item, YLenovoMobile2Item)
 
     @staticmethod
     def check_rep_date(date_source):

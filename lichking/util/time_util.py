@@ -2,6 +2,7 @@
 
 import time
 import datetime
+import re
 
 
 class TimeUtil:
@@ -45,3 +46,17 @@ class TimeUtil:
             if date1 == '':
                 return date2
             return date1
+
+    @staticmethod
+    def check_date_is_new(date_source):
+        date_source = re.search(u'\d{4}-\d{1,2}-\d{1,2}', date_source).group(0)
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        yestday = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+        try:
+            timestamp = time.mktime(time.strptime(date_source, '%Y-%m-%d'))
+            date_source = time.strftime('%Y-%m-%d', time.localtime(timestamp))
+            if date_source == today or date_source == yestday:
+                return True
+        except:
+            return False
+        return False

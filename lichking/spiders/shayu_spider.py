@@ -35,6 +35,7 @@ class Shayu_Spider(scrapy.Spider):
         # get into the bbs
         yield scrapy.Request(
             self.start_urls[0],
+            meta={"page_key": 1},
             callback=self.generate_forum_list
         )
         # yield scrapy.Request(
@@ -49,65 +50,32 @@ class Shayu_Spider(scrapy.Spider):
             for forum_url in forum_list:
                 url = re.search(u'http://www.18095.com/forum-\d{1,10}-1.html', forum_url)
                 if url is not None:
-                    if forum_url in self.forum_dict:
-                        self.forum_dict[forum_url] += 1
-                    else:
-                        logging.error(len(self.forum_dict))
-                        self.forum_dict[forum_url] = 1
-                        yield scrapy.Request(
-                            forum_url,
-                            dont_filter='true',
-                            callback=self.generate_forum_list
-                        )
+                    yield scrapy.Request(
+                        forum_url,
+                        meta={"page_key": 1},
+                        callback=self.generate_forum_list
+                    )
 
-                        yield scrapy.Request(
-                            forum_url,
-                            dont_filter='true',
-                            callback=self.generate_forum_page_list
-                        )
-
-    def generate_forum_page_list(self, response):
-        thread_list = response.xpath('//a[contains(@class,"xst")]/@href').extract()
-        if len(thread_list) > 0:
-            for thread_url in thread_list:
-                yield scrapy.Request(
-                    thread_url,
-                    callback=self.distinguish_forum_thread
-                )
-
+        page_key = int(response.meta['page_key'])
+        rep_time_list = response.xpath('//tr/td[@class="by"]/em/a').extract()
         if len(response.xpath('//span[@id="fd_page_bottom"]//a[@class="nxt"]/@href').extract()) != 0:
-            nxt_page = response.xpath('//span[@id="fd_page_bottom"]//a[@class="nxt"]/@href').extract()[0]
-            yield scrapy.Request(
-                nxt_page,
-                callback=self.generate_forum_page_list
-            )
-
-    def distinguish_forum_thread(self, response):
-        if response.xpath('//div[@class="pg"]//span/text()').extract():
-            page_num = response.xpath('//div[@class="pg"]//span/text()').extract()[0]
-            page_num = int(re.search(' / ([\d]+) ', page_num).group(0)[3])
-        else:
-            page_num = 1
-
-        forum_id = re.search(u'thread-([\d]+)',response.url).group(1)
-
-        if page_num > 50:
-            start_page = page_num - 40
-            for i in range(start_page, page_num + 1):
-                page_url = 'http://www.18095.com/thread-' + forum_id + '-' + str(i) + '-1.html'
+            if page_key == 1 or self.check_rep_date(rep_time_list):
+                nxt_page = \
+                    response.xpath('//span[@id="fd_page_bottom"]//a[@class="nxt"]/@href').extract()[0]
                 yield scrapy.Request(
-                    page_url,
-                    dont_filter='true',
-                    callback=self.generate_forum_thread
+                    nxt_page,
+                    meta={"page_key": -1},
+                    callback=self.generate_forum_list
                 )
-        else:
-            for i in range(1, page_num + 1):
-                page_url = 'http://www.18095.com/thread-' + forum_id + '-' + str(i) + '-1.html'
-                yield scrapy.Request(
-                    page_url,
-                    dont_filter='true',
-                    callback=self.generate_forum_thread
-                )
+
+                thread_list = response.xpath('//a[contains(@class,"xst")]/@href').extract()
+                if len(thread_list) > 0:
+                    logging.error(len(thread_list))
+                    for thread_url in thread_list:
+                        yield scrapy.Request(
+                            thread_url,
+                            callback=self.generate_forum_thread
+                        )
 
     def generate_forum_thread(self, response):
         forum_id = re.search(u'thread-([\d]+)', response.url)
@@ -119,7 +87,7 @@ class Shayu_Spider(scrapy.Spider):
         forum_item._id = forum_id
         forum_item.v = '0.1'
         rep_time_list = response.xpath('//td[@class="plc"]//div[@class="authi"]/em').extract()
-        if len(response.xpath('//span[@class="xi1"]/text()').extract()) > 0:
+        if len(response.xpath('//a[@class="prev"]').extract()) == 0:
             forum_item.source = self.source_name
             forum_item.source_short = self.source_short
             forum_item.url = response.url
@@ -141,12 +109,37 @@ class Shayu_Spider(scrapy.Spider):
                 forum_item.content = StrClean.clean_comment(c_soup.get_text())
                 forum_item.comment = self.gen_item_comment(response)
                 forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
-            MongoClient.save_shayu_forum(forum_item)
+            MongoClient.save_common_forum(forum_item, YShayuForumItem)
+
+            if response.xpath('//div[@class="pg"]//span/text()').extract():
+                page_num = response.xpath('//div[@class="pg"]//span/text()').extract()[0]
+                page_num = int(re.search(' / ([\d]+) ', page_num).group(0)[3])
+            else:
+                page_num = 1
+
+            if page_num > 40:
+                start_page = page_num - 20
+                for i in range(start_page, page_num + 1):
+                    page_url = 'http://www.18095.com/thread-' + forum_id + '-' + str(i) + '-1.html'
+                    yield scrapy.Request(
+                        page_url,
+                        dont_filter='true',
+                        callback=self.generate_forum_thread
+                    )
+            else:
+                for i in range(2, page_num + 1):
+                    page_url = 'http://www.18095.com/thread-' + forum_id + '-' + str(i) + '-1.html'
+                    yield scrapy.Request(
+                        page_url,
+                        dont_filter='true',
+                        callback=self.generate_forum_thread
+                    )
+
         else:
             forum_item.title = ''
             forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
             forum_item.comment = self.gen_item_comment(response)
-            MongoClient.save_shayu_forum(forum_item)
+            MongoClient.save_common_forum(forum_item, YShayuForumItem)
 
     @staticmethod
     def get_item_value(forum_arr):
@@ -181,3 +174,17 @@ class Shayu_Spider(scrapy.Spider):
         comment.append(new_comment)
         return comment
 
+    @staticmethod
+    def check_rep_date(rep_time_list):
+        try:
+            date_source = rep_time_list[0]
+            date_source = re.search(u'\d{4}-\d{1,2}-\d{1,2}', date_source).group(0)
+            today = datetime.datetime.now().strftime("%Y-%m-%d")
+            yestday = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+            timestamp = time.mktime(time.strptime(date_source, '%Y-%m-%d'))
+            date_source = time.strftime('%Y-%m-%d', time.localtime(timestamp))
+            if date_source == today or date_source == yestday:
+                return True
+        except:
+            return False
+        return False

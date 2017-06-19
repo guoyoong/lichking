@@ -32,25 +32,30 @@ class Ihei5Spider(scrapy.Spider):
     }
 
     def start_requests(self):
-        # yield scrapy.Request(
-        #     'http://bbs.ihei5.com/',
-        #     callback=self.generate_forum_url_list
-        # )
         yield scrapy.Request(
-            'http://bbs.ihei5.com/forum-39-1.html',
-            meta={"page_key": 1},
-            callback=self.generate_forum_page_list
+            'http://bbs.ihei5.com/',
+            callback=self.generate_forum_url_list
         )
+        # yield scrapy.Request(
+        #     'http://bbs.ihei5.com/forum-39-1.html',
+        #     meta={"page_key": 1},
+        #     callback=self.generate_forum_page_list
+        # )
 
     def generate_forum_url_list(self, response):
         all_a_tags = response.xpath('//a/@href').extract()
         for a_tag in all_a_tags:
             a_tag_re = re.search(u'forum.php\?gid=[\d]+', a_tag)
             if a_tag_re is not None:
-                yield scrapy.Request(
-                    a_tag,
-                    callback=self.generate_forum_url_list
-                )
+                if a_tag in self.forum_dict:
+                    self.forum_dict[a_tag] += 1
+                else:
+                    self.forum_dict[a_tag] = 1
+                    yield scrapy.Request(
+                        a_tag,
+                        dont_filter='true',
+                        callback=self.generate_forum_url_list
+                    )
             a_tag_re = re.search(u'forum-[\d]+-[\d]+.html', a_tag)
             if a_tag_re is not None:
                 if a_tag in self.forum_dict:
@@ -61,38 +66,36 @@ class Ihei5Spider(scrapy.Spider):
                     yield scrapy.Request(
                         a_tag,
                         meta={"page_key": 1},
+                        dont_filter='true',
                         callback=self.generate_forum_page_list
                     )
 
     def generate_forum_page_list(self, response):
-        flag = -1
         today = datetime.datetime.now().strftime("%Y-%m-%d")
         yestday = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
         rep_time = response.xpath('//th[contains(@class,"new")]//div[@class="foruminfo"]//i[@class="y"]').extract()
         thread_list = response.xpath('//th[contains(@class,"new")]//a[@onclick="atarget(this)"]/@href').extract()
-        for i in range(0, len(rep_time)):
-            r_time = re.search(u'\d{4}-\d{1,2}-\d{1,2}', rep_time[i])
-            if r_time is not None:
-                r_time = TimeUtil.format_date_short(r_time.group(0))
-                timestamp = time.mktime(time.strptime(r_time, '%Y-%m-%d'))
-                r_time = time.strftime('%Y-%m-%d', time.localtime(timestamp))
-                page_key = int(response.meta['page_key'])
-                # if 1 == 1:
-                # 是否有新回帖
-                if r_time == today or r_time == yestday or page_key == 1:
+        r_time = re.search(u'\d{4}-\d{1,2}-\d{1,2}', rep_time[0])
+        if r_time is not None:
+            r_time = TimeUtil.format_date_short(r_time.group(0))
+            timestamp = time.mktime(time.strptime(r_time, '%Y-%m-%d'))
+            r_time = time.strftime('%Y-%m-%d', time.localtime(timestamp))
+            page_key = int(response.meta['page_key'])
+            # 是否有新回帖
+            if r_time == today or r_time == yestday or page_key == 1:
+                for thread_url in thread_list:
                     yield scrapy.Request(
-                        thread_list[i],
+                        thread_url,
                         callback=self.generate_forum_thread
                     )
-                    # 是否有下一页
-                    if len(response.xpath('//div[@class="pg"]//a[@class="nxt"]').extract()) > 0 and flag == -1:
-                        flag = 1
-                        r_url = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()[0]
-                        yield scrapy.Request(
-                            r_url,
-                            meta={"page_key": -1},
-                            callback=self.generate_forum_page_list
-                        )
+                # 是否有下一页
+                if len(response.xpath('//div[@class="pg"]//a[@class="nxt"]').extract()) > 0:
+                    r_url = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()[0]
+                    yield scrapy.Request(
+                        r_url,
+                        meta={"page_key": -1},
+                        callback=self.generate_forum_page_list
+                    )
 
     def generate_forum_thread(self, response):
         forum_id = re.search(u'thread-[\d]+', response.url)
@@ -122,14 +125,14 @@ class Ihei5Spider(scrapy.Spider):
             forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
 
             c_soup = BeautifulSoup(response.xpath(
-                '//div[@class="t_fsz"]/table[1]').extract()[0], 'lxml')
+                '//div[@class="t_fsz"]').extract()[0], 'lxml')
             if c_soup.find('div', class_='attach_nopermission') is not None:
                 c_soup.find('div', class_='attach_nopermission').clear()
             [s.extract() for s in c_soup('script')]  # remove script tag
             forum_item.content = c_soup.get_text()
             forum_item.content = StrClean.clean_comment(forum_item.content)
             forum_item.comment = self.gen_item_comment(response)
-            MongoClient.save_ihei5_forum(forum_item)
+            MongoClient.save_common_forum(forum_item, YIhei52Item)
 
             if len(response.xpath('//div[@class="pg"]').extract()) > 0:
                 last_page = response.xpath('//a[@class="last"]/text()').extract()
@@ -138,12 +141,11 @@ class Ihei5Spider(scrapy.Spider):
                 else:
                     last_page = 10
                 c_url = response.url[:len(response.url) - 8]
-                # 水帖，只爬最后20页
+                # 水帖，只爬最后10页
                 start_page = 1
                 last_page = int(last_page)
-                if last_page > 50:
-                    start_page = last_page - 20
-                logging.error("start:"+str(start_page)+",end:"+str(last_page))
+                if last_page > 40:
+                    start_page = last_page - 10
                 for i in range(start_page, last_page + 1):
                     yield scrapy.Request(
                         c_url + str(i) + '-1.html',
@@ -153,15 +155,15 @@ class Ihei5Spider(scrapy.Spider):
             forum_item.title = ''
             forum_item.comment = self.gen_item_comment(response)
             forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
-            MongoClient.save_ihei5_forum(forum_item)
+            MongoClient.save_common_forum(forum_item, YIhei52Item)
 
         # 是否有下一页
-        if len(response.xpath('//div[@class="pg"]//a[@class="nxt"]').extract()) > 0:
-            r_url = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()[0]
-            yield scrapy.Request(
-                r_url,
-                callback=self.generate_forum_thread
-            )
+        # if len(response.xpath('//div[@class="pg"]//a[@class="nxt"]').extract()) > 0:
+        #     r_url = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()[0]
+        #     yield scrapy.Request(
+        #         r_url,
+        #         callback=self.generate_forum_thread
+        #     )
 
     @staticmethod
     def format_rep_date(date_source):

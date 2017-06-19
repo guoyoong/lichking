@@ -13,7 +13,7 @@ class GfanSpider(scrapy.Spider):
     start_urls = ['http://bbs.gfan.com/forum.php']
     source_name = '机锋论坛'
     source_short = 'gfan_forum'
-    max_reply = 6000
+    max_reply = 400
     forum_dict = {}
 
     custom_settings = {
@@ -41,6 +41,7 @@ class GfanSpider(scrapy.Spider):
         # get into the bbs
         yield scrapy.Request(
             self.start_urls[0],
+            meta={"page_key": 1},
             callback=self.generate_forum_list
         )
         # yield scrapy.Request(
@@ -50,42 +51,33 @@ class GfanSpider(scrapy.Spider):
 
     def generate_forum_list(self, response):
         forum_list = re.findall(u'http://bbs.gfan.com/forum-[\d]+-1.html', response.body)
-        for forum_url in forum_list:
-            if forum_url in self.forum_dict:
-                self.forum_dict[forum_url] += 1
-            else:
-                logging.error(forum_url)
-                self.forum_dict[forum_url] = 1
+        if len(forum_list) > 0:
+            for forum_url in forum_list:
                 yield scrapy.Request(
                     forum_url,
-                    dont_filter='true',
+                    meta={"page_key": 1},
                     callback=self.generate_forum_list
                 )
 
-                yield scrapy.Request(
-                    forum_url,
-                    dont_filter='true',
-                    callback=self.generate_forum_page_list
-                )
-
-    def generate_forum_page_list(self, response):
         pg_bar = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()
+        rep_time_list = response.xpath('//tr/td[@class="by"]/em/a').extract()
+        page_key = int(response.meta['page_key'])
         if len(pg_bar) > 0:
-            yield scrapy.Request(
-                pg_bar[0],
-                dont_filter='true',
-                callback=self.generate_forum_page_list
-            )
-
-        thread_list = response.xpath('//a[@class="xst"]/@href').extract()
-        logging.error(response.url)
-        logging.error(len(thread_list))
-        if len(thread_list) > 0:
-            for thread_url in thread_list:
+            if page_key == 1 or self.check_rep_date(rep_time_list):
                 yield scrapy.Request(
-                    thread_url,
-                    callback=self.generate_forum_thread
+                    pg_bar[0],
+                    meta={"page_key": -1},
+                    callback=self.generate_forum_list
                 )
+
+            thread_list = response.xpath('//a[@class="xst"]/@href').extract()
+            logging.error(len(thread_list))
+            if len(thread_list) > 0:
+                for thread_url in thread_list:
+                    yield scrapy.Request(
+                        thread_url,
+                        callback=self.generate_forum_thread
+                    )
 
     def generate_forum_thread(self, response):
         forum_item = YGfanForumItem()
@@ -96,8 +88,8 @@ class GfanSpider(scrapy.Spider):
             forum_id = re.search(u'tid=([\d]+)', response.url).group(1)
         forum_item._id = forum_id
         crawl_next = True
-        rep_time_list = response.xpath('//div[@class="authi"]//em/text()').extract()
-        if len(response.xpath('//span[@class="xi1"]/text()').extract()) != 0:
+        rep_time_list = response.xpath('//div[@class="authi"]//em').extract()
+        if len(response.xpath('//a[@class="prev"]').extract()) == 0:
             forum_item.source = self.source_name
             forum_item.source_short = self.source_short
             forum_item.url = response.url
@@ -120,17 +112,16 @@ class GfanSpider(scrapy.Spider):
 
             if int(forum_item.replies) > self.max_reply:
                 crawl_next = False
-            MongoClient.save_gfan_forum(forum_item)
+            MongoClient.save_common_forum(forum_item, YGfanForumItem)
 
         else:
             forum_item.title = ''
             forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
             forum_item.comment = self.gen_item_comment(response)
-            MongoClient.save_gfan_forum(forum_item)
+            MongoClient.save_common_forum(forum_item, YGfanForumItem)
 
         if len(response.xpath('//div[@class="pg"]//a[@class="nxt"]').extract()) > 0 and crawl_next:
             next_page = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()[0]
-            logging.error(next_page)
             yield scrapy.Request(
                 next_page,
                 callback=self.generate_forum_thread
@@ -168,3 +159,18 @@ class GfanSpider(scrapy.Spider):
         new_comment['comments_data'] = comments_data
         comment.append(new_comment)
         return comment
+
+    @staticmethod
+    def check_rep_date(rep_time_list):
+        try:
+            date_source = rep_time_list[0]
+            date_source = re.search(u'\d{4}-\d{1,2}-\d{1,2}', date_source).group(0)
+            today = datetime.datetime.now().strftime("%Y-%m-%d")
+            yestday = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+            timestamp = time.mktime(time.strptime(date_source, '%Y-%m-%d'))
+            date_source = time.strftime('%Y-%m-%d', time.localtime(timestamp))
+            if date_source == today or date_source == yestday:
+                return True
+        except:
+            return False
+        return False

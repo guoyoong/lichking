@@ -21,8 +21,6 @@ class TiebaSpider(scrapy.Spider):
     start_urls = ['http://tieba.baidu.com/']
     source_name = '百度贴吧'
     source_short = 'baidu_tieba2'
-    connect('yuqing', host=MONGODB_URI['host'], port=MONGODB_URI['port'],
-            username=MONGODB_URI['username'], password=MONGODB_URI['password'])
     category_arr = ["thinkpad", "拯救者游戏本", "联想", "联想小新"]
     # category_arr = ["thinkpad"]
 
@@ -131,7 +129,7 @@ class TiebaSpider(scrapy.Spider):
         new_comment['comments_data'] = comments_data
         comment.append(new_comment)
         tieba_item.comment = comment
-        MongoClient.save_tieba_item(tieba_item)
+        MongoClient.save_common_forum(tieba_item, YBaiduTieba2Item)
 
         # 回复的回复
         for indexi, content_id in \
@@ -146,9 +144,9 @@ class TiebaSpider(scrapy.Spider):
             )
 
         start_page = 2
-        # 水帖，只爬前10页，最后30页
-        if page_num > 50:
-            start_page = page_num - 30
+        # 水帖，只爬前10页，最后20页
+        if page_num > 40:
+            start_page = page_num - 10
             for i in range(2, 10):
                 yield scrapy.Request(
                     response.url + '?pn=' + str(i),
@@ -193,7 +191,7 @@ class TiebaSpider(scrapy.Spider):
             new_comment['comments_data'] = comments_data
             comment.append(new_comment)
             tieba_item.comment = comment
-            MongoClient.save_tieba_item(tieba_item)
+            MongoClient.save_common_forum(tieba_item, YBaiduTieba2Item)
 
             for indexi, content_id in \
                     enumerate(response.xpath('//div[contains(@class,"j_d_post_content ")]/@id').extract()):
@@ -226,7 +224,7 @@ class TiebaSpider(scrapy.Spider):
             new_comment['comments_data'] = comments_data
             comment.append(new_comment)
             tieba_item.comment = comment
-            MongoClient.save_tieba_item(tieba_item)
+            MongoClient.save_common_forum(tieba_item, YBaiduTieba2Item)
 
             com_url = response.url.split("pn=")[0]
             pn = int(response.url.split("pn=")[1])

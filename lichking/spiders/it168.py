@@ -15,6 +15,7 @@ class It168Spider(scrapy.Spider):
     forum_list_file = 'it168_forum_list_file'
     source_name = 'it168'
     source_short = 'it168'
+    max_reply = 400
     forum_dict = {}
 
     custom_settings = {
@@ -25,7 +26,7 @@ class It168Spider(scrapy.Spider):
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.1,
         'AUTOTHROTTLE_MAX_DELAY': 0.05,
-        'DOWNLOAD_DELAY': 0.1,
+        'DOWNLOAD_DELAY': 0.5,
         'CONCURRENT_REQUESTS_PER_DOMAIN': 3,
         'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleFifoDiskQueue',
         'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.FifoMemoryQueue',
@@ -44,11 +45,11 @@ class It168Spider(scrapy.Spider):
             'http://jiyouhui.it168.com/forum.php',
             callback=self.generate_forum_url_list
         )
-
         yield scrapy.Request(
             'http://benyouhui.it168.com/forum.php',
             callback=self.generate_forum_url_list
         )
+
         # yield scrapy.Request(
         #     'http://benyouhui.it168.com/forum-962-1.html',
         #     meta={"page_key": 1},
@@ -67,6 +68,7 @@ class It168Spider(scrapy.Spider):
                         forum_url = it168_url_pre + forum_url
                     yield scrapy.Request(
                         forum_url,
+                        dont_filter='true',
                         callback=self.generate_forum_url_list
                     )
                     if forum_url in self.forum_dict:
@@ -77,6 +79,7 @@ class It168Spider(scrapy.Spider):
                         yield scrapy.Request(
                             forum_url,
                             meta={"page_key": 1},
+                            dont_filter='true',
                             callback=self.generate_forum_page_list
                         )
 
@@ -92,7 +95,7 @@ class It168Spider(scrapy.Spider):
             today = datetime.datetime.now().strftime("%Y-%m-%d")
             yestday = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
             page_key = int(response.meta['page_key'])
-            logging.error(rep_time)
+            logging.error("page_key:" + str(page_key))
             if rep_time == today or rep_time == yestday or page_key == 1:
                 for thread_url in thread_list:
                     yield scrapy.Request(
@@ -116,6 +119,7 @@ class It168Spider(scrapy.Spider):
             forum_id = ''
         forum_item = YIt168Item()
         forum_item._id = forum_id
+        crawl_next = True
         if len(response.xpath('//span[@class="xi1"]/text()').extract()) > 1:
             forum_item.source = self.source_name
             forum_item.source_short = self.source_short
@@ -144,16 +148,19 @@ class It168Spider(scrapy.Spider):
             forum_item.content = StrClean.clean_comment(forum_item.content)
             forum_item.comment = self.gen_item_comment(response)
             forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
-            MongoClient.save_it168_forum(forum_item)
+
+            if int(forum_item.replies) > self.max_reply:
+                crawl_next = False
+            MongoClient.save_common_forum(forum_item, YIt168Item)
         else:
             forum_item.title = ''
             rep_time_list = response.xpath('//div[@class="authi"]//em/text()').extract()
             forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
             forum_item.comment = self.gen_item_comment(response)
-            MongoClient.save_it168_forum(forum_item)
+            MongoClient.save_common_forum(forum_item, YIt168Item)
 
         # 是否有下一页
-        if len(response.xpath('//div[@class="pg"]//a[@class="nxt"]').extract()) > 0:
+        if len(response.xpath('//div[@class="pg"]//a[@class="nxt"]').extract()) > 0 and crawl_next:
             it168_url_pre = response.url.split('thread')[0]
             r_url = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()[0]
             yield scrapy.Request(
