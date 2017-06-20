@@ -22,16 +22,10 @@ class PconlineSpider(scrapy.Spider):
 
     custom_settings = {
         'COOKIES_ENABLED': False,
-        # 是否追踪referer
-        'REFERER_ENABLED': True,
-        'AUTOTHROTTLE_DEBUG': False,
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.1,
         'AUTOTHROTTLE_MAX_DELAY': 0.8,
         'DOWNLOAD_DELAY': 0.5,
-        'CONCURRENT_REQUESTS_PER_DOMAIN': 3,
-        'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleFifoDiskQueue',
-        'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.FifoMemoryQueue',
     }
 
     def __init__(self):
@@ -63,10 +57,9 @@ class PconlineSpider(scrapy.Spider):
                     )
 
         pg_next = response.xpath('//a[@class="btn-next"]/@href').extract()
-        # rep_time_list = response.xpath('//tr/td[@class="by"]/em/a').extract()
         page_key = int(response.meta['page_key'])
         if len(pg_next) > 0:
-            # if page_key == 1 or self.check_rep_date(rep_time_list):
+            # 论坛 没有展示回复时间抓取前3页
             if page_key < self.max_page:
                 yield scrapy.Request(
                     'http:' + pg_next[0],

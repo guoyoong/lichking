@@ -7,7 +7,6 @@ from bs4 import BeautifulSoup
 from lichking.mongo.mongo_client import *
 import logging
 
-
 class ImobileSpider(scrapy.Spider):
     name = "imobile"
     start_urls = ['http://lt.imobile.com.cn/forum.php']
@@ -17,16 +16,10 @@ class ImobileSpider(scrapy.Spider):
 
     custom_settings = {
         'COOKIES_ENABLED': False,
-        # 是否追踪referer
-        'REFERER_ENABLED': True,
-        'AUTOTHROTTLE_DEBUG': False,
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.1,
         'AUTOTHROTTLE_MAX_DELAY': 0.8,
-        'DOWNLOAD_DELAY': 0.5,
-        'CONCURRENT_REQUESTS_PER_DOMAIN': 3,
-        'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleFifoDiskQueue',
-        'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.FifoMemoryQueue',
+        'DOWNLOAD_DELAY': 0.2
     }
 
     def __init__(self):
@@ -87,7 +80,7 @@ class ImobileSpider(scrapy.Spider):
         forum_item._id = forum_id
         crawl_next = True
         rep_time_list = response.xpath('//div[@class="authi"]/em').extract()
-        if response.url[len(response.url) - 9:] == '-1-1.html' or response.url.find("tid") != -1:
+        if re.search(u'thread-([\d]+)-1-([\d]+).html', response.url) is not None or response.url.find("tid") != -1:
             forum_item.source = self.source_name
             forum_item.source_short = self.source_short
             forum_item.url = response.url
@@ -103,6 +96,9 @@ class ImobileSpider(scrapy.Spider):
             forum_item.title = StrClean.clean_comment(response.xpath('//span[@id="thread_subject"]/text()').extract()[0])
             c_soup = BeautifulSoup(response.xpath(
                 '//div[@class="pct"]//table[1]').extract()[0], 'lxml')
+            [s.extract() for s in c_soup('script')]  # remove script tag
+            if c_soup.find('div', class_='attach_nopermission attach_tips') is not None:
+                c_soup.find('div', class_='attach_nopermission attach_tips').clear()
             forum_item.content = c_soup.get_text()
             forum_item.content = StrClean.clean_comment(forum_item.content)
             forum_item.comment = self.gen_item_comment(response, is_first=True)
@@ -133,6 +129,8 @@ class ImobileSpider(scrapy.Spider):
         new_comment = {}
         comments_data = []
         rep_time_list = response.xpath('//div[@class="authi"]/em').extract()
+        if len(rep_time_list) == 0:
+            return comment
         for indexi, content in enumerate(response.xpath('//div[@class="pct"]//table[1]').extract()):
             if is_first and indexi == 0:
                 continue

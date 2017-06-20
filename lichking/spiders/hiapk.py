@@ -16,7 +16,7 @@ class HiapkSpider(scrapy.Spider):
     forum_list_file = 'hiapk_forum_list_file'
     source_name = '安卓论坛'
     source_short = 'hiapk'
-    max_reply = 400
+    max_reply = 200
     forum_dict = {}
 
     custom_settings = {

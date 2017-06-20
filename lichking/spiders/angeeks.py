@@ -16,7 +16,7 @@ class AngeeksSpider(scrapy.Spider):
     start_urls = ['http://angeeks.com/']
     source_name = '安极论坛'
     source_short = 'angeeks'
-    max_reply = 400
+    max_reply = 200
     forum_dict = {}
 
     custom_settings = {
@@ -77,8 +77,6 @@ class AngeeksSpider(scrapy.Spider):
             logging.error(len(thread_list))
             if len(thread_list) > 0:
                 for thread_url in thread_list:
-                    with open('angeeks_test', 'a') as f:
-                        f.write(thread_url + '\n')
                     yield scrapy.Request(
                         thread_url,
                         callback=self.generate_forum_thread

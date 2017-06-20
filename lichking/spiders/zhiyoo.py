@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 import scrapy
-import fileinput
-import re
 from lichking.util.str_clean import *
+import re
 from lichking.util.time_util import *
 from bs4 import BeautifulSoup
 from lichking.mongo.mongo_client import *
@@ -16,25 +15,15 @@ class ZhiyooSpider(scrapy.Spider):
     source_name = '安智智友论坛'
     source_short = 'zhiyoo'
     forum_arr = [2044, 1822, 82, 71, 55, 201, 1692, 204, 659, 843, 1958, 707, 4]
-    max_reply = 400
+    max_reply = 200
     forum_dict = {}
 
     custom_settings = {
         'COOKIES_ENABLED': False,
-        # 是否追踪referer
-        'REFERER_ENABLED': True,
-        'AUTOTHROTTLE_DEBUG': False,
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.5,
         'AUTOTHROTTLE_MAX_DELAY': 0.8,
         'DOWNLOAD_DELAY': 0.2,
-        'CONCURRENT_REQUESTS_PER_DOMAIN': 1,
-        'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleFifoDiskQueue',
-        'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.FifoMemoryQueue',
-        'DOWNLOADER_MIDDLEWARES': {
-            'lichking.middlewares.RandomUserAgent_pc': 1,
-            'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
-        },
     }
 
     def start_requests(self):

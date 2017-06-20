@@ -25,3 +25,5 @@
 
 5.mongo 运维：
     查看连接数：db.serverStatus().connections
+
+6.

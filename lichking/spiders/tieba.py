@@ -3,7 +3,6 @@ import scrapy
 import logging
 import random
 from lichking.mongo.mongo_client import *
-from lichking.settings import MONGODB_URI
 import re
 from lxml import etree
 from lichking.util.time_util import *
@@ -26,18 +25,10 @@ class TiebaSpider(scrapy.Spider):
 
     custom_settings = {
         'COOKIES_ENABLED': False,
-        # 是否追踪referer
-        'REFERER_ENABLED': True,
-        'AUTOTHROTTLE_DEBUG': False,
         'AUTOTHROTTLE_ENABLED': True,
-        'AUTOTHROTTLE_START_DELAY': 0.01,
-        'AUTOTHROTTLE_MAX_DELAY': 0.08,
-        'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleFifoDiskQueue',
-        'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.FifoMemoryQueue',
-        'DOWNLOADER_MIDDLEWARES': {
-            'lichking.middlewares.RandomUserAgent_pc': 1,
-            'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
-        },
+        'AUTOTHROTTLE_START_DELAY': 0.5,
+        'AUTOTHROTTLE_MAX_DELAY': 0.8,
+        'DOWNLOAD_DELAY': 0.2,
     }
 
     def __init__(self):

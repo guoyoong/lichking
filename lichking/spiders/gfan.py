@@ -13,7 +13,7 @@ class GfanSpider(scrapy.Spider):
     start_urls = ['http://bbs.gfan.com/forum.php']
     source_name = '机锋论坛'
     source_short = 'gfan_forum'
-    max_reply = 400
+    max_reply = 200
     forum_dict = {}
 
     custom_settings = {
