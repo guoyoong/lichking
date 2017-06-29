@@ -292,3 +292,24 @@ class YImobileItem(Document):
     parse_time = StringField(default='')
     last_reply_time = StringField(default='')
     v = StringField(default='0.1')
+
+
+class YPcpopItem(Document):
+    _id = StringField(default='')
+    url = StringField(default='')
+    # forum
+    source = StringField(default='')
+    source_short = StringField(default='')
+    views = StringField(default='')
+    # forum part
+    category = StringField(default='')
+    replies = StringField(default='')
+    title = StringField(default='')
+    comment = ListField()
+    content = StringField(default='')
+    time = StringField(default='')
+    insert_time = StringField(default='')
+    flag = StringField(default='')
+    parse_time = StringField(default='')
+    last_reply_time = StringField(default='')
+    v = StringField(default='0.1')

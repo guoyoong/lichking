@@ -14,7 +14,7 @@ class GfanSpider(scrapy.Spider):
     source_name = '机锋论坛'
     source_short = 'gfan_forum'
     max_reply = 200
-    forum_dict = {}
+    forum_dict = {"http://bbs.gfan.com/forum-170-1.html", "http://bbs.gfan.com/forum-62-1.html"}
 
     custom_settings = {
         'COOKIES_ENABLED': False,
@@ -53,11 +53,12 @@ class GfanSpider(scrapy.Spider):
         forum_list = re.findall(u'http://bbs.gfan.com/forum-[\d]+-1.html', response.body)
         if len(forum_list) > 0:
             for forum_url in forum_list:
-                yield scrapy.Request(
-                    forum_url,
-                    meta={"page_key": 1},
-                    callback=self.generate_forum_list
-                )
+                if forum_url not in self.forum_dict:
+                    yield scrapy.Request(
+                        forum_url,
+                        meta={"page_key": 1},
+                        callback=self.generate_forum_list
+                    )
 
         pg_bar = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()
         rep_time_list = response.xpath('//tr/td[@class="by"]/em/a').extract()

@@ -1,4 +1,4 @@
-# coding=utf-8
+# -*- coding: utf-8 -*-
 
 from mongo_item import *
 import sys
@@ -61,6 +61,16 @@ class MongoClient:
             items.update_one(set__insert_time=forum_item.insert_time)
             items.update_one(set__flag=forum_item.flag)
             items.update_one(set__views=forum_item.views)
+
+    @staticmethod
+    def save_forum_replies(forum_item, object_item):
+        forum_item.insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        forum_item.flag = '-1'
+        items = object_item.objects(_id=forum_item._id)
+        if len(items) > 0:  # not
+            items.update_one(set__insert_time=forum_item.insert_time)
+            items.update_one(set__flag=forum_item.flag)
+            items.update_one(set__replies=forum_item.replies)
 
     @staticmethod
     def save_ithome_com_sum(article_item):

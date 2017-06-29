@@ -17,7 +17,8 @@ class HiapkSpider(scrapy.Spider):
     source_name = '安卓论坛'
     source_short = 'hiapk'
     max_reply = 200
-    forum_dict = {}
+    forum_dict = {"http://bbs.hiapk.com/forum-183-1.html", "http://bbs.hiapk.com/forum-10-1.html",
+                  "http://games.hiapk.com/forum-65-1.html","http://bbs.hiapk.com/forum-86-1.html" }
 
     custom_settings = {
         'COOKIES_ENABLED': False,
@@ -52,12 +53,12 @@ class HiapkSpider(scrapy.Spider):
                 f_url = forum_url
                 if forum_url.find('bbs.hiapk.com') == -1:
                     f_url = 'http://bbs.hiapk.com/' + forum_url
-
-                yield scrapy.Request(
-                    f_url,
-                    meta={"page_key": 1},
-                    callback=self.generate_forum
-                )
+                if f_url not in self.forum_dict:
+                    yield scrapy.Request(
+                        f_url,
+                        meta={"page_key": 1},
+                        callback=self.generate_forum
+                    )
 
         hiapk_url_pre = response.url.split('forum')[0]
         # check 是否有下一页

@@ -69,15 +69,15 @@ class ZhiyooSpider(scrapy.Spider):
                     meta={"page_key": -1},
                     callback=self.generate_forum
                 )
-            # scrapy all tie url
-            thread_list = response.xpath('//a[@class="xst"]/@href').extract()
-            logging.error(len(thread_list))
-            if len(thread_list) > 0:
-                for thread_url in thread_list:
-                    yield scrapy.Request(
-                        thread_url,
-                        callback=self.generate_forum_thread
-                    )
+                # scrapy all tie url
+                thread_list = response.xpath('//a[@class="xst"]/@href').extract()
+                logging.error(len(thread_list))
+                if len(thread_list) > 0:
+                    for thread_url in thread_list:
+                        yield scrapy.Request(
+                            thread_url,
+                            callback=self.generate_forum_thread
+                        )
 
     def generate_forum_thread(self, response):
         forum_id = re.search(u'thread-([\d]+)', response.url)

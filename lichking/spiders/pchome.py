@@ -30,16 +30,7 @@ class PchomeSpider(scrapy.Spider):
         print 123
 
     def start_requests(self):
-        # get into the bbs
-        for forum_group in self.start_urls:
-            yield scrapy.Request(
-                forum_group,
-                meta={"page_key": 1},
-                callback=self.generate_forum_list
-            )
-        # yield scrapy.Request(
-        #     'http://itbbs.pconline.com.cn/mobile/f769405.html',
-        #     meta={"page_key": 1},
-        #     callback=self.generate_forum_list
-        # )
+        return [scrapy.http.FormRequest(url="http://10.100.124.226:9200/test/test/_bulk",
+                            formdata={'': 'John Doe'},
+                            callback=self.after_post)]
 

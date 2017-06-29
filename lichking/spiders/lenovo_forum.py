@@ -101,6 +101,7 @@ class LenovoClub(scrapy.Spider):
                 if forum_item.time == '':
                     # 最近的回复日期 需要特殊处理。默认日期格式：2017-5-3 12:1:1
                     forum_item.time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            forum_item.time = self.format_rep_date(forum_item.time)
             forum_item.flag = '-1'
 
             rep_time_list = response.xpath('//div[@class="authi"]/em').extract()
