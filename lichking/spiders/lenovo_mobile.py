@@ -55,7 +55,7 @@ class LenovoMobile(scrapy.Spider):
             '//div[@class="threadlist_info"]//div[@class="lastreply"]//span/@title').extract()
         page_key = int(response.meta['page_key']) + 1
         if len(rep_time_path) > 0:
-            if self.check_rep_date(rep_time_path[0]) or page_key == 1:
+            if self.check_rep_date(rep_time_path[0]) or page_key == 2:
                 # 请求下一页
                 forum_key = response.meta['forum_key']
                 yield scrapy.Request(
@@ -63,7 +63,7 @@ class LenovoMobile(scrapy.Spider):
                     meta={"page_key": page_key, "forum_key": forum_key},
                     callback=self.generate_forum_url
                 )
-
+                logging.error(len(url_xpath))
                 # 请求帖子
                 for forum_url in url_xpath:
                     yield scrapy.Request(
@@ -170,7 +170,6 @@ class LenovoMobile(scrapy.Spider):
     @staticmethod
     def check_rep_date(date_source):
         date_source = re.search(u'\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}', date_source).group(0)
-        logging.error(date_source)
         timestamp = time.mktime(time.strptime(date_source, '%Y-%m-%d %H:%M'))
         date_source = time.strftime('%Y-%m-%d', time.localtime(timestamp))
         today = datetime.datetime.now().strftime("%Y-%m-%d")

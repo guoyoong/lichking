@@ -15,20 +15,13 @@ class Ihei5Spider(scrapy.Spider):
     start_urls = ['http://bbs.ihei5.com/']
     source_name = '爱黑武'
     source_short = 'ihei52'
-    forum_dict = {}
 
     custom_settings = {
         'COOKIES_ENABLED': False,
-        # 是否追踪referer
-        'REFERER_ENABLED': True,
-        'AUTOTHROTTLE_DEBUG': False,
         'AUTOTHROTTLE_ENABLED': True,
-        'AUTOTHROTTLE_START_DELAY': 0.1,
-        'AUTOTHROTTLE_MAX_DELAY': 0.4,
-        'DOWNLOAD_DELAY': 0.2,
-        'CONCURRENT_REQUESTS_PER_DOMAIN': 1,
-        'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleFifoDiskQueue',
-        'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.FifoMemoryQueue',
+        'AUTOTHROTTLE_START_DELAY': 0.5,
+        'AUTOTHROTTLE_MAX_DELAY': 0.8,
+        'DOWNLOAD_DELAY': 0.5,
     }
 
     def start_requests(self):
@@ -47,28 +40,17 @@ class Ihei5Spider(scrapy.Spider):
         for a_tag in all_a_tags:
             a_tag_re = re.search(u'forum.php\?gid=[\d]+', a_tag)
             if a_tag_re is not None:
-                if a_tag in self.forum_dict:
-                    self.forum_dict[a_tag] += 1
-                else:
-                    self.forum_dict[a_tag] = 1
-                    yield scrapy.Request(
-                        a_tag,
-                        dont_filter='true',
-                        callback=self.generate_forum_url_list
-                    )
+                yield scrapy.Request(
+                    a_tag,
+                    callback=self.generate_forum_url_list
+                )
             a_tag_re = re.search(u'forum-[\d]+-[\d]+.html', a_tag)
             if a_tag_re is not None:
-                if a_tag in self.forum_dict:
-                    logging.error("exists:"+a_tag)
-                    self.forum_dict[a_tag] += 1
-                else:
-                    self.forum_dict[a_tag] = 1
-                    yield scrapy.Request(
-                        a_tag,
-                        meta={"page_key": 1},
-                        dont_filter='true',
-                        callback=self.generate_forum_page_list
-                    )
+                yield scrapy.Request(
+                    a_tag,
+                    meta={"page_key": 1},
+                    callback=self.generate_forum_page_list
+                )
 
     def generate_forum_page_list(self, response):
         today = datetime.datetime.now().strftime("%Y-%m-%d")

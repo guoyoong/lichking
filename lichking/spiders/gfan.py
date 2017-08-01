@@ -18,20 +18,10 @@ class GfanSpider(scrapy.Spider):
 
     custom_settings = {
         'COOKIES_ENABLED': False,
-        # 是否追踪referer
-        'REFERER_ENABLED': True,
-        'AUTOTHROTTLE_DEBUG': False,
         'AUTOTHROTTLE_ENABLED': True,
-        'AUTOTHROTTLE_START_DELAY': 0.1,
+        'AUTOTHROTTLE_START_DELAY': 0.5,
         'AUTOTHROTTLE_MAX_DELAY': 0.8,
-        'DOWNLOAD_DELAY': 0.2,
-        'CONCURRENT_REQUESTS_PER_DOMAIN': 3,
-        'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleFifoDiskQueue',
-        'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.FifoMemoryQueue',
-        'DOWNLOADER_MIDDLEWARES': {
-            'lichking.middlewares.RandomUserAgent_pc': 1,
-            'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
-        },
+        'DOWNLOAD_DELAY': 0.5,
     }
 
     def __init__(self):

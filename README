@@ -26,4 +26,6 @@
 5.mongo 运维：
     查看连接数：db.serverStatus().connections
 
-6.
+6.debug
+    from scrapy import cmdline
+    cmdline.execute('scrapy crawl amazon_products -o items.csv -t csv'.split())

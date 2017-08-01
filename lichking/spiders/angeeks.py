@@ -21,20 +21,10 @@ class AngeeksSpider(scrapy.Spider):
 
     custom_settings = {
         'COOKIES_ENABLED': False,
-        # 是否追踪referer
-        'REFERER_ENABLED': True,
-        'AUTOTHROTTLE_DEBUG': False,
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.5,
-        'AUTOTHROTTLE_MAX_DELAY': 1,
+        'AUTOTHROTTLE_MAX_DELAY': 0.8,
         'DOWNLOAD_DELAY': 0.5,
-        'CONCURRENT_REQUESTS_PER_DOMAIN': 3,
-        'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleFifoDiskQueue',
-        'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.FifoMemoryQueue',
-        'DOWNLOADER_MIDDLEWARES': {
-            'lichking.middlewares.RandomUserAgent_pc': 1,
-            'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
-        },
     }
 
     def start_requests(self):
@@ -97,7 +87,7 @@ class AngeeksSpider(scrapy.Spider):
             forum_item.url = response.url
             forum_item.views = StrClean.get_safe_value(response.xpath('//span[@class="xi1"]/text()').extract())
             forum_item.replies = \
-                StrClean.get_safe_value(response.xpath('//span[@class="xi1"]/text()').extract(), index=0)
+                StrClean.get_safe_value(response.xpath('//span[@class="xi1"]/text()').extract(), index=1)
             category1 = StrClean.get_safe_value(
                 response.xpath('//div[@id="pt"]//div[@class="z"]//a[2]/text()').extract())
             category2 = StrClean.get_safe_value(
@@ -116,7 +106,8 @@ class AngeeksSpider(scrapy.Spider):
             forum_item.content = c_soup.get_text()
             forum_item.content = StrClean.clean_comment(forum_item.content)
             forum_item.comment = self.gen_item_comment(response)
-            forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
+            if len(rep_time_list) > 0:
+                forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
             if int(forum_item.replies) > self.max_reply:
                 crawl_next = False
 

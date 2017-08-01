@@ -19,19 +19,10 @@ class IthomeSpider(scrapy.Spider):
 
     custom_settings = {
         'COOKIES_ENABLED': False,
-        # 是否追踪referer
-        'REFERER_ENABLED': True,
-        'AUTOTHROTTLE_DEBUG': False,
         'AUTOTHROTTLE_ENABLED': True,
-        'AUTOTHROTTLE_START_DELAY': 0.1,
-        'AUTOTHROTTLE_MAX_DELAY': 0.1,
+        'AUTOTHROTTLE_START_DELAY': 0.5,
+        'AUTOTHROTTLE_MAX_DELAY': 0.8,
         'DOWNLOAD_DELAY': 0.5,
-        'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleFifoDiskQueue',
-        'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.FifoMemoryQueue',
-        'DOWNLOADER_MIDDLEWARES': {
-            'lichking.middlewares.RandomUserAgent_pc': 1,
-            'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
-        },
     }
 
     # 断点
@@ -81,18 +72,11 @@ class IthomeSpider(scrapy.Spider):
 
         MongoClient.save_ithome_article(ithome_item)
 
-        com_url = \
-            "http://dyn.ithome.com/ithome/getajaxdata.aspx?newsID=" + article_id + "&type=commentpage&order=false&page="
-        yield scrapy.Request(
-            com_url + str(1),
-            dont_filter='true',
-            callback=self.generate_article_comment
-        )
-
         com_sum_url = "http://dyn.ithome.com/comment/" + str(article_id)
         yield scrapy.Request(
             com_sum_url,
             dont_filter='true',
+            meta={'article_id': str(article_id)},
             callback=self.generate_article_comment_sum
         )
 
@@ -109,6 +93,17 @@ class IthomeSpider(scrapy.Spider):
         ithome_item._id = re.search(u'[\d]+', response.url).group(0)
         ithome_item.replies = str(com_sum)
         MongoClient.save_ithome_com_sum(ithome_item)
+
+        hash_key = response.xpath('//input[@id="hash"]/@value').extract()
+        if len(hash_key) > 0:
+            com_url = \
+                "http://dyn.ithome.com/ithome/getajaxdata.aspx?newsID=" + response.meta['article_id']
+            com_url += "&type=commentpage&order=false&hash="+hash_key[0]+"&page="
+            yield scrapy.Request(
+                com_url + str(1),
+                dont_filter='true',
+                callback=self.generate_article_comment
+            )
 
     def generate_article_comment(self, response):
         if response.body:

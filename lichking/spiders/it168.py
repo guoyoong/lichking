@@ -15,25 +15,14 @@ class It168Spider(scrapy.Spider):
     forum_list_file = 'it168_forum_list_file'
     source_name = 'it168'
     source_short = 'it168'
-    max_reply = 400
-    forum_dict = {}
+    max_reply = 200
 
     custom_settings = {
         'COOKIES_ENABLED': False,
-        # 是否追踪referer
-        'REFERER_ENABLED': True,
-        'AUTOTHROTTLE_DEBUG': False,
         'AUTOTHROTTLE_ENABLED': True,
-        'AUTOTHROTTLE_START_DELAY': 0.1,
-        'AUTOTHROTTLE_MAX_DELAY': 0.05,
+        'AUTOTHROTTLE_START_DELAY': 0.5,
+        'AUTOTHROTTLE_MAX_DELAY': 0.8,
         'DOWNLOAD_DELAY': 0.5,
-        'CONCURRENT_REQUESTS_PER_DOMAIN': 3,
-        'SCHEDULER_DISK_QUEUE': 'scrapy.squeues.PickleFifoDiskQueue',
-        'SCHEDULER_MEMORY_QUEUE': 'scrapy.squeues.FifoMemoryQueue',
-        'DOWNLOADER_MIDDLEWARES': {
-            'lichking.middlewares.RandomUserAgent_pc': 1,
-            'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
-        },
     }
 
     def __init__(self):
@@ -43,10 +32,12 @@ class It168Spider(scrapy.Spider):
         # enter forum
         yield scrapy.Request(
             'http://jiyouhui.it168.com/forum.php',
+            meta={"page_key": 1},
             callback=self.generate_forum_url_list
         )
         yield scrapy.Request(
             'http://benyouhui.it168.com/forum.php',
+            meta={"page_key": 1},
             callback=self.generate_forum_url_list
         )
 
@@ -68,22 +59,10 @@ class It168Spider(scrapy.Spider):
                         forum_url = it168_url_pre + forum_url
                     yield scrapy.Request(
                         forum_url,
-                        dont_filter='true',
+                        meta={"page_key": 1},
                         callback=self.generate_forum_url_list
                     )
-                    if forum_url in self.forum_dict:
-                        self.forum_dict[forum_url] += 1
-                    else:
-                        logging.error(forum_url)
-                        self.forum_dict[forum_url] = 1
-                        yield scrapy.Request(
-                            forum_url,
-                            meta={"page_key": 1},
-                            dont_filter='true',
-                            callback=self.generate_forum_page_list
-                        )
 
-    def generate_forum_page_list(self, response):
         # scrapy all tie url
         thread_list = response.xpath('//a[@class="xst"]/@href').extract()
         rep_time_list = response.xpath('//p[@class="replyer"]').extract()
@@ -108,7 +87,7 @@ class It168Spider(scrapy.Spider):
                     yield scrapy.Request(
                         it168_url_pre + pg_bar[0],
                         meta={"page_key": -1},
-                        callback=self.generate_forum_page_list
+                        callback=self.generate_forum_url_list
                     )
 
     def generate_forum_thread(self, response):

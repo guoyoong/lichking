@@ -17,7 +17,7 @@ class PconlineSpider(scrapy.Spider):
     category_list = ['mobile/', 'bbs/', 'diy/', 'notebook/', '']
     source_name = '太平洋电脑网'
     source_short = 'pconline'
-    max_reply = 400
+    max_reply = 200
     max_page = 3
 
     custom_settings = {

@@ -20,9 +20,9 @@ class Shayu_Spider(scrapy.Spider):
     custom_settings = {
         'COOKIES_ENABLED': False,
         'AUTOTHROTTLE_ENABLED': True,
-        'AUTOTHROTTLE_START_DELAY': 0.1,
-        'AUTOTHROTTLE_MAX_DELAY': 0.3,
-        'DOWNLOAD_DELAY': 0.3,
+        'AUTOTHROTTLE_START_DELAY': 0.5,
+        'AUTOTHROTTLE_MAX_DELAY': 0.8,
+        'DOWNLOAD_DELAY': 0.5,
     }
 
     def start_requests(self):

@@ -152,6 +152,7 @@ class PcpopSpider(scrapy.Spider):
             yestday = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
             timestamp = time.mktime(time.strptime(date_source, '%Y-%m-%d'))
             date_source = time.strftime('%Y-%m-%d', time.localtime(timestamp))
+            logging.error(date_source)
             if date_source == today or date_source == yestday:
                 return True
         except:

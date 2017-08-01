@@ -79,6 +79,34 @@ class MongoClient:
             if len(items) > 0:
                 items.update_one(set__replies=article_item.replies)
 
+    @staticmethod
+    def save_common_onlineshop(shop_item, object_item):
+        shop_item.insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        shop_item.flag = '-1'
+        if shop_item.title != '':
+            shop_item.save()
+        else:
+            items = object_item.objects(_id=shop_item._id)
+            if len(items) > 0:  # not
+                n_comment = \
+                    MongoClient.remove_duplicate_comment(items[0].replies_comment, shop_item.replies_comment[0])
+                insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                items.update_one(set__insert_time=insert_time)
+                last_rtime = TimeUtil.compare_date_short(items[0].last_reply_time, shop_item.last_reply_time)
+                items.update_one(set__last_reply_time=last_rtime)
+                items.update_one(set__replies_comment=n_comment)
+                items.update_one(set__flag=shop_item.flag)
+
+    @staticmethod
+    def save_suning_usefulcnt(shop_item, object_item):
+        shop_item.insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        shop_item.flag = '-1'
+        items = object_item.objects(_id=shop_item._id)
+        if len(items) > 0:  # not
+            items.update_one(set__insert_time=shop_item.insert_time)
+            items.update_one(set__useful_vote_count=shop_item.useful_vote_count)
+            items.update_one(set__replies=shop_item.replies)
+
     # 评论去重
     @staticmethod
     def remove_duplicate_comment(source_comments, new_comment):

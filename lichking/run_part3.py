@@ -23,6 +23,7 @@ from lichking.spiders.pconline import *
 from lichking.spiders.pcpop import *
 
 
+
 def other_method():
     logging.error(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")+':::   otherMethod')
 
@@ -50,12 +51,13 @@ if __name__ == '__main__':
     trigger_spider_job(It168Spider, 14)
     trigger_spider_job(IthomeSpider, 16)
     trigger_spider_job(LenovoClub, 18)
-    trigger_spider_job(LenovoMobile, 20)
+    # trigger_spider_job(LenovoMobile, 20)
     trigger_spider_job(PconlineSpider, 22)
     trigger_spider_job(Shayu_Spider, 24)
     trigger_spider_job(TiebaSpider, 26)
     trigger_spider_job(ZhiyooSpider, 28)
     trigger_spider_job(PcpopSpider, 30)
+    trigger_spider_job(PcpopSpider, 32)
 
     reactor.run()
 

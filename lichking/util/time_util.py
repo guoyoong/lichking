@@ -60,3 +60,9 @@ class TimeUtil:
         except:
             return False
         return False
+
+    @staticmethod
+    def get_date_diff_seconds(date1, date2):
+        timestamp1 = time.mktime(time.strptime(date1, '%Y-%m-%d %H:%M:%S'))
+        timestamp2 = time.mktime(time.strptime(date2, '%Y-%m-%d %H:%M:%S'))
+        return int(timestamp2 - timestamp1)

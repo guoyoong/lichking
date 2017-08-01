@@ -12,14 +12,14 @@ class ImobileSpider(scrapy.Spider):
     start_urls = ['http://lt.imobile.com.cn/forum.php']
     source_name = '手机之家'
     source_short = 'imobile'
-    max_reply = 300
+    max_reply = 200
 
     custom_settings = {
         'COOKIES_ENABLED': False,
         'AUTOTHROTTLE_ENABLED': True,
-        'AUTOTHROTTLE_START_DELAY': 0.1,
+        'AUTOTHROTTLE_START_DELAY': 0.5,
         'AUTOTHROTTLE_MAX_DELAY': 0.8,
-        'DOWNLOAD_DELAY': 0.2
+        'DOWNLOAD_DELAY': 0.5,
     }
 
     def __init__(self):
