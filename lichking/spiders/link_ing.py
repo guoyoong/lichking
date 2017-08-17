@@ -11,17 +11,17 @@
 
 # selenium
 
-from selenium import webdriver
-
-driver = webdriver.Chrome()
-driver.get("https://www.baidu.com")
+# from selenium import webdriver
+#
+# driver = webdriver.Chrome()
+# driver.get("https://www.google.com")
 
 # 添加Cookie
-driver.add_cookie({'name': 'BAIDUID', 'value': ''})
-driver.add_cookie({'name': 'BDUSS', 'value': ''})
+# driver.add_cookie({'name': 'BAIDUID', 'value': ''})
+# driver.add_cookie({'name': 'BDUSS', 'value': ''})
 
 # 刷新页面
-driver.refresh()
+# driver.refresh()
 
 
 # 添加Cookie

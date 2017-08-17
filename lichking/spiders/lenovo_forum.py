@@ -1,12 +1,10 @@
 # coding=utf-8
 
 import scrapy
-import re
 import logging
 from lichking.mongo.mongo_client import *
 from bs4 import BeautifulSoup
 from lichking.util.str_clean import *
-from lichking.settings import MONGODB_URI
 from lichking.util.time_util import *
 
 
@@ -23,10 +21,11 @@ class LenovoClub(scrapy.Spider):
     source_name = "联想社区"
     source_short = "lenovo_forum2"
     custom_settings = {
-        'DOWNLOAD_DELAY': 0.01,
+        'COOKIES_ENABLED': False,
         'AUTOTHROTTLE_ENABLED': True,
-        'AUTOTHROTTLE_START_DELAY': 0.01,
-        'AUTOTHROTTLE_MAX_DELAY': 1.0
+        'AUTOTHROTTLE_START_DELAY': 0.5,
+        'AUTOTHROTTLE_MAX_DELAY': 0.8,
+        'DOWNLOAD_DELAY': 0.8,
     }
 
     # 断点

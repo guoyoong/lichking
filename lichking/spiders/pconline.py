@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import scrapy
-import re
 from lichking.util.str_clean import *
 from bs4 import BeautifulSoup
 from lichking.mongo.mongo_client import *
@@ -23,9 +22,9 @@ class PconlineSpider(scrapy.Spider):
     custom_settings = {
         'COOKIES_ENABLED': False,
         'AUTOTHROTTLE_ENABLED': True,
-        'AUTOTHROTTLE_START_DELAY': 0.1,
+        'AUTOTHROTTLE_START_DELAY': 0.5,
         'AUTOTHROTTLE_MAX_DELAY': 0.8,
-        'DOWNLOAD_DELAY': 0.5,
+        'DOWNLOAD_DELAY': 0.8,
     }
 
     def __init__(self):

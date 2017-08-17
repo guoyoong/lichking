@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 import scrapy
 from lichking.util.str_clean import *
-import re
-from lichking.util.time_util import *
 from bs4 import BeautifulSoup
 from lichking.mongo.mongo_client import *
 import logging
@@ -24,7 +22,7 @@ class PcpopSpider(scrapy.Spider):
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.5,
         'AUTOTHROTTLE_MAX_DELAY': 0.8,
-        'DOWNLOAD_DELAY': 0.5,
+        'DOWNLOAD_DELAY': 0.8,
     }
 
     def start_requests(self):

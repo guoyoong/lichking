@@ -2,7 +2,6 @@
 
 import scrapy
 from lichking.mongo.mongo_client import *
-from lichking.settings import MONGODB_URI
 from lichking.util.time_util import *
 from lichking.util.str_clean import *
 from bs4 import BeautifulSoup
@@ -22,10 +21,11 @@ class LenovoMobile(scrapy.Spider):
     source_name = "联想手机社区"
     source_short = "lenovo_mobile2"
     custom_settings = {
-        'DOWNLOAD_DELAY': 0.01,
+        'COOKIES_ENABLED': False,
         'AUTOTHROTTLE_ENABLED': True,
-        'AUTOTHROTTLE_START_DELAY': 0.01,
-        'AUTOTHROTTLE_MAX_DELAY': 5.8
+        'AUTOTHROTTLE_START_DELAY': 0.5,
+        'AUTOTHROTTLE_MAX_DELAY': 0.8,
+        'DOWNLOAD_DELAY': 0.8,
     }
 
     forum_page_num = {

@@ -66,3 +66,11 @@ class TimeUtil:
         timestamp1 = time.mktime(time.strptime(date1, '%Y-%m-%d %H:%M:%S'))
         timestamp2 = time.mktime(time.strptime(date2, '%Y-%m-%d %H:%M:%S'))
         return int(timestamp2 - timestamp1)
+
+    @staticmethod
+    def timestamp_to_format_date(time_st):
+        try:
+            date_source = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time_st))
+            return date_source
+        except:
+            return ''

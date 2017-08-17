@@ -35,20 +35,21 @@ class MongoClient:
                 items.update_one(set__flag=forum_item.flag)
 
     @staticmethod
-    def save_ithome_article(article_item):
+    def save_common_article(article_item, object_item):
         article_item.insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         article_item.flag = '-1'
         if article_item.title != '':
             article_item.save()
         else:
-            items = YIthome2Item.objects(_id=article_item._id)
+            items = object_item.objects(_id=article_item._id)
             if len(items) > 0:  # not
                 n_comment = \
                     MongoClient.remove_duplicate_comment(items[0].comment, article_item.comment[0])
                 insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 items.update_one(set__insert_time=insert_time)
                 if article_item.last_reply_time != '':
-                    items.update_one(set__last_reply_time=article_item.last_reply_time)
+                    last_rtime = TimeUtil.compare_date_short(items[0].last_reply_time, article_item.last_reply_time)
+                    items.update_one(set__last_reply_time=last_rtime)
                 items.update_one(set__comment=n_comment)
                 items.update_one(set__flag=article_item.flag)
 

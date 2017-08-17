@@ -1,13 +1,9 @@
 # -*- coding: utf-8 -*-
 import scrapy
 from lichking.mongo.mongo_client import *
-from lichking.settings import MONGODB_URI
-import re
-import logging
 from lichking.util.time_util import *
 from lichking.util.str_clean import *
 from bs4 import BeautifulSoup
-import fileinput
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -33,7 +29,7 @@ class CnmoSpider(scrapy.Spider):
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.5,
         'AUTOTHROTTLE_MAX_DELAY': 0.8,
-        'DOWNLOAD_DELAY': 0.5,
+        'DOWNLOAD_DELAY': 0.8,
     }
 
     def __init__(self):

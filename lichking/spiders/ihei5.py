@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
 import scrapy
-import logging
-import fileinput
-import re
 from lichking.mongo.mongo_client import *
 from lichking.util.time_util import *
 from lichking.util.str_clean import *
@@ -21,7 +18,7 @@ class Ihei5Spider(scrapy.Spider):
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.5,
         'AUTOTHROTTLE_MAX_DELAY': 0.8,
-        'DOWNLOAD_DELAY': 0.5,
+        'DOWNLOAD_DELAY': 0.8,
     }
 
     def start_requests(self):

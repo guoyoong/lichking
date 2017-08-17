@@ -3,7 +3,6 @@ import scrapy
 import json
 from lichking.mongo.mongo_client import *
 from bs4 import BeautifulSoup
-import logging
 
 
 def generate_product_category(response):
@@ -30,7 +29,7 @@ class SuningSpider(scrapy.Spider):
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.5,
         'AUTOTHROTTLE_MAX_DELAY': 0.8,
-        'DOWNLOAD_DELAY': 0.5,
+        'DOWNLOAD_DELAY': 0.8,
     }
 
     def start_requests(self):

@@ -35,9 +35,15 @@ connect('yuqing', host='10.100.2.225', username='yuqing', password='123456')
 # source_comments = remove_duplicate_comment(item.comment, new_comment)
 # item.comment = source_comments
 # item.save()
-crawl_pages = YLenovoForum2Item.objects(Q(insert_time__gte="2017-06-01 00:00:00") & Q(insert_time__lte="2017-07-01 00:00:00"))
-if len(crawl_pages) > 0:
-    date1 = crawl_pages.order_by('insert_time')[0].insert_time
-    date2 = crawl_pages.order_by('-insert_time')[0].insert_time
-    print TimeUtil.get_date_diff_seconds(date1, date2)
+# crawl_pages = YLenovoForum2Item.objects(Q(insert_time__gte="2017-06-01 00:00:00") & Q(insert_time__lte="2017-07-01 00:00:00"))
+# if len(crawl_pages) > 0:
+#     date1 = crawl_pages.order_by('insert_time')[0].insert_time
+#     date2 = crawl_pages.order_by('-insert_time')[0].insert_time
+#     print TimeUtil.get_date_diff_seconds(date1, date2)
+#
+
+for i in range(31, 61):
+    #print "insert into `qlik_server_user` (`userid`, `name`) values('pool-%s','pool-%s'); " % (str(i), str(i))
+    print "insert into `qlik_server_attributes` (`userid`, `type`, `value`) values('pool-%s','email','pool-%s');" % \
+          (str(i), str(i))
 

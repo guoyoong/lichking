@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 import scrapy
-# import fileinput
-import re
 from lichking.util.str_clean import *
-from lichking.util.time_util import *
 from bs4 import BeautifulSoup
 from lichking.mongo.mongo_client import *
 import logging

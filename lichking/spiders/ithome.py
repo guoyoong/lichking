@@ -4,7 +4,6 @@ from lichking.mongo.mongo_client import *
 from lichking.util.time_util import *
 from lichking.util.str_clean import *
 from bs4 import BeautifulSoup
-import logging
 
 
 class IthomeSpider(scrapy.Spider):
@@ -22,7 +21,7 @@ class IthomeSpider(scrapy.Spider):
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.5,
         'AUTOTHROTTLE_MAX_DELAY': 0.8,
-        'DOWNLOAD_DELAY': 0.5,
+        'DOWNLOAD_DELAY': 0.8,
     }
 
     # 断点
@@ -70,7 +69,7 @@ class IthomeSpider(scrapy.Spider):
         ithome_item.content = StrClean.clean_comment(soup.get_text())
         ithome_item.last_reply_time = self.format_rep_date(ithome_item.time)
 
-        MongoClient.save_ithome_article(ithome_item)
+        MongoClient.save_common_article(ithome_item, YIthome2Item)
 
         com_sum_url = "http://dyn.ithome.com/comment/" + str(article_id)
         yield scrapy.Request(
@@ -130,7 +129,7 @@ class IthomeSpider(scrapy.Spider):
             pn = int(response.url.split("page=")[1])
             if pn == 1:
                 ithome_item.last_reply_time = self.format_rep_date(rep_time_list[0])
-            MongoClient.save_ithome_article(ithome_item)
+            MongoClient.save_common_article(ithome_item, YIthome2Item)
 
             com_url = response.url.split("page=")[0]
             yield scrapy.Request(

@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 import scrapy
 import logging
-import random
 from lichking.mongo.mongo_client import *
-import re
 from lxml import etree
 from lichking.util.time_util import *
 from lichking.util.str_clean import *
@@ -28,7 +26,7 @@ class TiebaSpider(scrapy.Spider):
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.5,
         'AUTOTHROTTLE_MAX_DELAY': 0.8,
-        'DOWNLOAD_DELAY': 0.2,
+        'DOWNLOAD_DELAY': 0.8,
     }
 
     def __init__(self):

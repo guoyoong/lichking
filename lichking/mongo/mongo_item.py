@@ -398,6 +398,48 @@ class YSuningItem(Document):
     replies_comment = ListField()
 
 
+class YSanliukrItem(Document):
+    _id = StringField(default='')
+    url = StringField(default='')
+    title = StringField(default='')
+    content = StringField(default='')
+    source = StringField(default='')
+    source_short = StringField(default='')
+    author = StringField(default='')
+    time = StringField(default='')
+    category = StringField(default='')
+    replies = StringField(default='')
+    views = StringField(default='0')
+
+    comment = ListField()
+    insert_time = StringField(default='')
+    flag = StringField(default='')
+    parse_time = StringField(default='')
+    last_reply_time = StringField(default='')
+    v = StringField(default='0.1')
+
+
+class YToutiaoItem(Document):
+    _id = StringField(default='')
+    url = StringField(default='')
+    title = StringField(default='')
+    content = StringField(default='')
+    source = StringField(default='')
+    source_short = StringField(default='')
+    author = StringField(default='')
+    time = StringField(default='')
+    category = StringField(default='')
+    replies = StringField(default='')
+    views = StringField(default='0')
+
+    comment = ListField()
+    insert_time = StringField(default='')
+    flag = StringField(default='')
+    parse_time = StringField(default='')
+    last_reply_time = StringField(default='')
+    v = StringField(default='0.1')
+
+
 class YuqingSpiderMonitor(Document):
     _id = StringField(default='')
     key = StringField(default='')
@@ -407,3 +449,8 @@ class YuqingSpiderMonitor(Document):
     duration = StringField(default='')
     date_stat = StringField(default='')
 
+
+class FreeProxyItem(Document):
+    _id = StringField(default='')
+    ip = StringField(default='')
+    port = StringField(default='')
