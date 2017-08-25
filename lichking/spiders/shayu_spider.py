@@ -19,7 +19,7 @@ class Shayu_Spider(scrapy.Spider):
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.5,
         'AUTOTHROTTLE_MAX_DELAY': 0.8,
-        'DOWNLOAD_DELAY': 0.5,
+        'DOWNLOAD_DELAY': 1.2,
     }
 
     def start_requests(self):
@@ -114,7 +114,6 @@ class Shayu_Spider(scrapy.Spider):
                     page_url = 'http://www.18095.com/thread-' + forum_id + '-' + str(i) + '-1.html'
                     yield scrapy.Request(
                         page_url,
-                        dont_filter='true',
                         callback=self.generate_forum_thread
                     )
             else:
@@ -122,7 +121,6 @@ class Shayu_Spider(scrapy.Spider):
                     page_url = 'http://www.18095.com/thread-' + forum_id + '-' + str(i) + '-1.html'
                     yield scrapy.Request(
                         page_url,
-                        dont_filter='true',
                         callback=self.generate_forum_thread
                     )
 

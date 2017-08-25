@@ -39,7 +39,8 @@ class ToutiaoSpider(scrapy.Spider):
         as_id = ''.join(random.sample(string.ascii_letters + string.digits, 15))
         cp_id = ''.join(random.sample(string.ascii_letters + string.digits, 15))
         yield scrapy.Request(
-            "http://www.toutiao.com/api/pc/feed/?category=news_tech&" +
+            "http://www.toutiao.com/api/pc/feed/?category=news_tech&utm_source=toutiao&widen=1&max_behot_time=0" +
+            "max_behot_time_tmp=" + str(int(time.time())) +
             "tadrequire=true&as=" + as_id + "&cp=" + cp_id + "&t=" + str(time.time()),
             callback=self.generate_article_url
         )
@@ -73,7 +74,7 @@ class ToutiaoSpider(scrapy.Spider):
             # 是一个js字面量，不是json
             item.title = re.search(u"title: \'(.*)\'", a_content).group(1)
             item.content = BeautifulSoup(re.search(u"content: \'(.*)\'\.replace\(", a_content).group(1),
-                                          'lxml').get_text()
+                                         'lxml').get_text()
             item.content = BeautifulSoup(item.content, 'lxml').get_text()
             item.author = re.search(u"name: \'(.*)\'", a_content).group(1)
             item.time = re.search(u"time: \'(.*)\'", a_content).group(1) + ':00'
@@ -91,6 +92,17 @@ class ToutiaoSpider(scrapy.Spider):
                 callback=self.generate_article_comment,
                 meta={"article_id": item._id}
             )
+
+            # 如果 tag 是科技或者财经 抓取related article
+            if item.category == "科技" or item.category == "财经":
+                a_content = a_content.split("initList:")[1]
+                gids = a_content.split(" || []")[0]
+                for gid in json.loads(gids):
+                    if gid.get("article_genre") == "article":
+                        yield scrapy.Request(
+                            self.toutiao_url_pre + '/group/' + gid.get("group_id"),
+                            callback=self.generate_article_content
+                        )
 
     def generate_article_comment(self, response):
         y_item = YToutiaoItem()

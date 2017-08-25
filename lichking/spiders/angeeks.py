@@ -20,7 +20,7 @@ class AngeeksSpider(scrapy.Spider):
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.5,
         'AUTOTHROTTLE_MAX_DELAY': 0.8,
-        'DOWNLOAD_DELAY': 0.8,
+        'DOWNLOAD_DELAY': 1.2,
     }
 
     def start_requests(self):

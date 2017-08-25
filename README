@@ -1,3 +1,5 @@
+Tips：没有抓不到的数据，只有不努力的爬虫 fight!
+
 1.运行
     cd /home/bastion/spider_lenovo/lichking
     nohup scrapy crawl ithome > ../spider_logs/ithome.log &

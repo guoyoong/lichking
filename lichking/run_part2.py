@@ -57,7 +57,6 @@ if __name__ == '__main__':
     trigger_spider_job(TiebaSpider, 26)
     trigger_spider_job(ZhiyooSpider, 28)
     trigger_spider_job(PcpopSpider, 30)
-    trigger_spider_job(PcpopSpider, 32)
     trigger_spider_job(SuningSpider, 34)
 
     reactor.run()

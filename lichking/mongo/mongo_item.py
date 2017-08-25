@@ -419,6 +419,27 @@ class YSanliukrItem(Document):
     v = StringField(default='0.1')
 
 
+class YHuxiuItem(Document):
+    _id = StringField(default='')
+    url = StringField(default='')
+    title = StringField(default='')
+    content = StringField(default='')
+    source = StringField(default='')
+    source_short = StringField(default='')
+    author = StringField(default='')
+    time = StringField(default='')
+    category = StringField(default='')
+    replies = StringField(default='')
+    views = StringField(default='0')
+
+    comment = ListField()
+    insert_time = StringField(default='')
+    flag = StringField(default='')
+    parse_time = StringField(default='')
+    last_reply_time = StringField(default='')
+    v = StringField(default='0.1')
+
+
 class YToutiaoItem(Document):
     _id = StringField(default='')
     url = StringField(default='')
@@ -440,6 +461,39 @@ class YToutiaoItem(Document):
     v = StringField(default='0.1')
 
 
+class YIfanrItem(Document):
+    _id = StringField(default='')
+    url = StringField(default='')
+    title = StringField(default='')
+    content = StringField(default='')
+    source = StringField(default='')
+    source_short = StringField(default='')
+    author = StringField(default='')
+    time = StringField(default='')
+    category = StringField(default='')
+    replies = StringField(default='')
+    views = StringField(default='0')
+
+    comment = ListField()
+    insert_time = StringField(default='')
+    flag = StringField(default='')
+    parse_time = StringField(default='')
+    last_reply_time = StringField(default='')
+    v = StringField(default='0.1')
+
+
+class YQichachaItem(Document):
+    _id = StringField(default='')
+    name = StringField(default='')
+    base_info = ListField()
+    susong = ListField()
+    firm_run = ListField()
+    touzi = ListField()
+    report = ListField()
+    assets = ListField()
+    yuqing = ListField()
+
+
 class YuqingSpiderMonitor(Document):
     _id = StringField(default='')
     key = StringField(default='')
@@ -454,3 +508,4 @@ class FreeProxyItem(Document):
     _id = StringField(default='')
     ip = StringField(default='')
     port = StringField(default='')
+

@@ -21,7 +21,11 @@ class IthomeSpider(scrapy.Spider):
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.5,
         'AUTOTHROTTLE_MAX_DELAY': 0.8,
-        'DOWNLOAD_DELAY': 0.8,
+        'DOWNLOAD_DELAY': 1.2,
+        'DEFAULT_REQUEST_HEADERS': {
+            'user-agent':
+                'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.101 Safari/537.36',
+        }
     }
 
     # 断点
@@ -31,7 +35,7 @@ class IthomeSpider(scrapy.Spider):
     # scrapy start and check page num
     def start_requests(self):
         for i in range(self.start_page_num, self.page_num):
-            url = 'http://win10.ithome.com/ithome/getajaxdata.aspx?categoryid=0&type=pccategorypage&page=' + str(i)
+            url = 'https://www.ithome.com/ithome/getajaxdata.aspx?page=' + str(i) + '&type=indexpage'
             yield scrapy.Request(
                 url,
                 dont_filter='true',
@@ -154,3 +158,8 @@ class IthomeSpider(scrapy.Spider):
             return forum_arr[0].strip()
         else:
             return ''
+
+
+if __name__ == '__main__':
+    from scrapy import cmdline
+    cmdline.execute('scrapy crawl ithome'.split())
