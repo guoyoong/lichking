@@ -43,7 +43,7 @@ media_source_arr = {
 
 
 def print_time(source_type, source_name, document_item):
-    today = datetime.datetime.now().strftime("%Y-%m-%d") + " 00:00:00"
+    today = datetime.datetime.now().strftime("%Y-%m-%d") + " 12:00:00"
     yestday = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d') + " 00:00:00"
     connect('yuqing', host=MONGODB_URI['host'], port=MONGODB_URI['port'],
             username=MONGODB_URI['username'], password=MONGODB_URI['password'])
@@ -55,7 +55,7 @@ def print_time(source_type, source_name, document_item):
     ymonitor.crawl_pages = str(len(crawl_pages))
     ymonitor.new_pages = str(new_pages)
     ymonitor.source_type = source_type
-    ymonitor.date_stat = today
+    ymonitor.date_stat = datetime.datetime.now().strftime("%Y-%m-%d") + " 00:00:00"
     if len(crawl_pages) > 0:
         date1 = crawl_pages.order_by('insert_time')[0].insert_time
         date2 = crawl_pages.order_by('-insert_time')[0].insert_time

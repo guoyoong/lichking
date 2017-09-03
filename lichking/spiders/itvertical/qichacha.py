@@ -29,7 +29,13 @@ class QichacahSpider(scrapy.Spider):
     }
 
     # cookie 有效期一个星期
-    qicha_cookie = {}
+    qicha_cookie = {'CNZZDATA1254842228': '780227049-1503483775-null%7C1503483775',
+                    'PHPSESSID': 'j06ghm22p2kjmt3hsve9hkdpv6',
+                    '_uab_collina': '150348722116778704168448',
+                    '_umdata': 'E2AE90FA4E0E42DEE59CBAC46561DF4B98DF99D138F0503931CFE50F8E388F249A899F453D98C08BCD43AD3E795C914C426EF357FC57E68673245DE7C8AFE08B',
+                    'hasShow': '1',
+                    'zg_did': '%7B%22did%22%3A%20%2215e0ed25cab433-08c456bc8aeea7-3a3e5e06-100200-15e0ed25cae4a1%22%7D',
+                    'UM_distinctid': '15e0ed25c700-0d1799cfc21e41-3a3e5e06-100200-15e0ed25c713a8'}
 
     def __init__(self):
         self.source_short = "qichacha"

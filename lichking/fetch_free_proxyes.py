@@ -3,8 +3,10 @@
 from bs4 import BeautifulSoup
 import urllib2
 import logging
-from mongo.mongo_client import *
-from util.md5_util import *
+from lichking.mongo.mongo_client import *
+from lichking.util.md5_util import *
+from apscheduler.schedulers.blocking import BlockingScheduler
+
 
 logger = logging.getLogger(__name__)
 
@@ -178,13 +180,16 @@ def fetch_all():
     for p in proxyes:
         if check(p):
             valid_proxyes.append(p)
+            print p
+
     return valid_proxyes
 
-if __name__ == '__main__':
+
+def trigger_proxy_job():
     import sys
     root_logger = logging.getLogger("")
     stream_handler = logging.StreamHandler(sys.stdout)
-    formatter = logging.Formatter('%(name)-8s %(asctime)s %(levelname)-8s %(message)s', '%a, %d %b %Y %H:%M:%S',)
+    formatter = logging.Formatter('%(name)-8s %(asctime)s %(levelname)-8s %(message)s', '%a, %d %b %Y %H:%M:%S', )
     stream_handler.setFormatter(formatter)
     root_logger.addHandler(stream_handler)
     logger = logging.getLogger(__name__)
@@ -196,4 +201,21 @@ if __name__ == '__main__':
         proxy_item.ip = str(p).split(":")[0]
         proxy_item.port = str(p).split(":")[1]
         proxy_item.save()
+
+    items = MongoClient.get_all_proxy()
+    for p_item in items:
+        if not check(str(p_item.ip) + ":" + str(p_item.port)):
+            FreeProxyItem.objects(_id=p_item._id).delete()
+
+
+if __name__ == '__main__':
+    trigger_proxy_job()
+    # bscheduler = BlockingScheduler()
+    # bscheduler.add_job(trigger_proxy_job, 'interval', minutes=8)
+    # bscheduler.start()
+
+
+
+
+
 

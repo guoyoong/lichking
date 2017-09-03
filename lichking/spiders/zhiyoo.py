@@ -27,13 +27,13 @@ class ZhiyooSpider(scrapy.Spider):
     def start_requests(self):
         yield scrapy.Request(
             'http://bbs.zhiyoo.com/',
-            meta={"page_key": 1},
+            meta={"page_key": 1, "proxy": MongoClient.get_random_proxy()},
             callback=self.generate_forum
         )
         for index in self.forum_arr:
             yield scrapy.Request(
                 'http://bbs.zhiyoo.com/source/module/forum/tab_ajax.php?index=nav_' + str(index),
-                meta={"page_key": 1},
+                meta={"page_key": 1, "proxy": MongoClient.get_random_proxy()},
                 callback=self.generate_forum
             )
         # yield scrapy.Request(
@@ -51,7 +51,7 @@ class ZhiyooSpider(scrapy.Spider):
 
                 yield scrapy.Request(
                     f_url,
-                    meta={"page_key": 1},
+                    meta={"page_key": 1, "proxy": MongoClient.get_random_proxy()},
                     callback=self.generate_forum
                 )
 
@@ -64,16 +64,16 @@ class ZhiyooSpider(scrapy.Spider):
             if page_key == 1 or self.check_rep_date(rep_time_list):
                 yield scrapy.Request(
                     pg_bar[0],
-                    meta={"page_key": -1},
+                    meta={"page_key": -1, "proxy": MongoClient.get_random_proxy()},
                     callback=self.generate_forum
                 )
                 # scrapy all tie url
                 thread_list = response.xpath('//a[@class="xst"]/@href').extract()
-                logging.error(len(thread_list))
                 if len(thread_list) > 0:
                     for thread_url in thread_list:
                         yield scrapy.Request(
                             thread_url,
+                            meta={"proxy": MongoClient.get_random_proxy()},
                             callback=self.generate_forum_thread
                         )
 
@@ -86,7 +86,7 @@ class ZhiyooSpider(scrapy.Spider):
         forum_item = YZhiyooItem()
         forum_item._id = forum_id
         crawl_next = True
-        if len(response.xpath('//a[@class="prev"]').extract()) == 0:
+        if len(response.xpath('//span[@class="xi1"]/text()').extract()) > 0:
             forum_item.source = self.source_name
             forum_item.source_short = self.source_short
             forum_item.url = response.url
@@ -114,23 +114,24 @@ class ZhiyooSpider(scrapy.Spider):
             forum_item.content = StrClean.clean_comment(forum_item.content)
             forum_item.comment = self.gen_item_comment(response)
             forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
-            logging.info("replies" + forum_item.replies)
             if int(forum_item.replies) > self.max_reply:
                 crawl_next = False
 
             MongoClient.save_common_forum(forum_item, YZhiyooItem)
         else:
             forum_item.title = ''
-            rep_time_list = response.xpath('//div[@class="authi"]//em').extract()
-            forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
-            forum_item.comment = self.gen_item_comment(response)
-            MongoClient.save_common_forum(forum_item, YZhiyooItem)
+            rep_time_list = re.findall(u'\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}', response.body)
+            if len(rep_time_list) > 0:
+                forum_item.last_reply_time = self.format_rep_date(rep_time_list[-1])
+                forum_item.comment = self.gen_item_comment(response)
+                MongoClient.save_common_forum(forum_item, YZhiyooItem)
 
         # 是否有下一页
         if len(response.xpath('//div[@class="pg"]//a[@class="nxt"]').extract()) > 0 and crawl_next:
             r_url = response.xpath('//div[@class="pg"]//a[@class="nxt"]/@href').extract()[0]
             yield scrapy.Request(
                 r_url,
+                meta={"proxy": MongoClient.get_random_proxy()},
                 callback=self.generate_forum_thread
             )
 
@@ -138,7 +139,7 @@ class ZhiyooSpider(scrapy.Spider):
         comment = []
         new_comment = {}
         comments_data = []
-        rep_time_list = response.xpath('//div[@class="authi"]//em').extract()
+        rep_time_list = re.findall(u'\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}', response.body)
         for indexi, content in enumerate(response.xpath('//div[@class="t_fsz"]//table[1]').extract()):
             soup = BeautifulSoup(content, 'lxml')
             [s.extract() for s in soup('script')]  # remove script tag

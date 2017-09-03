@@ -4,6 +4,7 @@ from mongo_item import *
 import sys
 from lichking.util.time_util import *
 from lichking.settings import MONGODB_URI
+from random import choice
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -15,6 +16,17 @@ class MongoClient:
 
     def __init__(self):
         print 123
+
+    @staticmethod
+    def get_all_proxy():
+        return FreeProxyItem.objects(ip__ne="1")
+
+    @staticmethod
+    def get_random_proxy():
+        items = FreeProxyItem.objects(ip__ne="1")
+        p_item = choice(items)
+        return "http://" + str(p_item.ip) + ":" + str(p_item.port)
+
 
     @staticmethod
     def save_common_forum(forum_item, object_item):
