@@ -492,6 +492,7 @@ class YQichachaItem(Document):
     report = ListField()
     assets = ListField()
     yuqing = ListField()
+    insert_time = StringField(default='')
 
 
 class YuqingSpiderMonitor(Document):
@@ -508,4 +509,5 @@ class FreeProxyItem(Document):
     _id = StringField(default='')
     ip = StringField(default='')
     port = StringField(default='')
+    time = StringField(default='')
 

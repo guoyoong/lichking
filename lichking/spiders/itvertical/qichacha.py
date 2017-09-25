@@ -19,9 +19,9 @@ class QichacahSpider(scrapy.Spider):
 
     custom_settings = {
         'AUTOTHROTTLE_ENABLED': True,
-        'AUTOTHROTTLE_START_DELAY': 0.5,
-        'AUTOTHROTTLE_MAX_DELAY': 0.8,
-        'DOWNLOAD_DELAY': 1.2,
+        'AUTOTHROTTLE_START_DELAY': 3,
+        'AUTOTHROTTLE_MAX_DELAY': 3,
+        'DOWNLOAD_DELAY': 3,
         'DEFAULT_REQUEST_HEADERS': {
             'user-agent':
                 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.101 Safari/537.36',
@@ -29,13 +29,14 @@ class QichacahSpider(scrapy.Spider):
     }
 
     # cookie 有效期一个星期
-    qicha_cookie = {'CNZZDATA1254842228': '780227049-1503483775-null%7C1503483775',
-                    'PHPSESSID': 'j06ghm22p2kjmt3hsve9hkdpv6',
-                    '_uab_collina': '150348722116778704168448',
-                    '_umdata': 'E2AE90FA4E0E42DEE59CBAC46561DF4B98DF99D138F0503931CFE50F8E388F249A899F453D98C08BCD43AD3E795C914C426EF357FC57E68673245DE7C8AFE08B',
-                    'hasShow': '1',
-                    'zg_did': '%7B%22did%22%3A%20%2215e0ed25cab433-08c456bc8aeea7-3a3e5e06-100200-15e0ed25cae4a1%22%7D',
-                    'UM_distinctid': '15e0ed25c700-0d1799cfc21e41-3a3e5e06-100200-15e0ed25c713a8'}
+    qicha_cookie = {'CNZZDATA1254842228': '1344262236-1504601048-https%253A%252F%252Fwww.qichacha.com%252F%7C1505873642',
+                    'PHPSESSID': '0lr420dakp82uiba2u5qjae5c7',
+                    # '_uab_collina': '150460169094577226831388',
+                    # '_umdata': 'E2AE90FA4E0E42DEE59CBAC46561DF4B98DF99D138F0503931CFE50F8E388F249A899F453D98C08BCD43AD3E795C914C8BCC59DC29ED289D21B3E4E07D991E42',
+                    # 'hasShow': '1',
+                    # 'zg_did': '%7B%22did%22%3A%20%2215e513fd1a026d-05ea14c3726071-3a3e5f04-100200-15e513fd1a158c%22%7D',
+                    # 'UM_distinctid': '15e513fd277465-0e8550552977f7-3a3e5f04-100200-15e513fd278337'
+                    }
 
     def __init__(self):
         self.source_short = "qichacha"
@@ -43,27 +44,20 @@ class QichacahSpider(scrapy.Spider):
     # scrapy start and check page num
     def start_requests(self):
         yield scrapy.Request(
-            "http://www.qichacha.com/search?key=中国路桥工程有限责任公司",
+            "http://www.qichacha.com/search?key=中国建筑股份有限公司",
             cookies=self.qicha_cookie,
-            callback=self.generate_firm_url
-        )
-
-    def qicha_login(self, response):
-        yield scrapy.Request(
-            "http://www.qichacha.com/search?key=中国路桥工程有限责任公司",
-            cookies=self.qicha_cookie,
-            encoding='utf-8',
             callback=self.generate_firm_url
         )
 
     def generate_firm_url(self, response):
-        # firm_hrefs = response.xpath('//a[@class="ma_h1"]/@href').extract()
-        # for a_id in firm_hrefs:
-        yield scrapy.Request(
-            self.url_qichacha_pre + "/firm_2182ba29845188732b4e060eb9a5e99f.html",
-            encoding='utf-8',
-            callback=self.generate_firm_content
-        )
+        firm_hrefs = response.xpath('//a[@class="ma_h1"]/@href').extract()
+        for a_id in firm_hrefs:
+            yield scrapy.Request(
+                self.url_qichacha_pre + a_id,
+                cookies=self.qicha_cookie,
+                encoding='utf-8',
+                callback=self.generate_firm_content
+            )
 
     def generate_firm_content(self, response):
         qitem = YQichachaItem()
@@ -74,6 +68,7 @@ class QichacahSpider(scrapy.Spider):
             "//span[contains(@class, 'm_comInfo')]").extract()[0])})
 
         qitem.base_info = base_info
+        qitem.save()
         chacha_url_pre = self.url_qichacha_pre + '/company_getinfos?unique=' + qitem._id + '&companyname='+qitem.name
         yield scrapy.Request(
             chacha_url_pre +'&tab=base',
@@ -84,6 +79,25 @@ class QichacahSpider(scrapy.Spider):
         )
 
     def generate_firm_base(self, response):
+        firm_hrefs = response.xpath("//a/@href").extract()
+        for a_id in firm_hrefs:
+            if a_id.find("firm_") == -1:
+                continue
+            if a_id.find(".html") != -1:
+                yield scrapy.Request(
+                    self.url_qichacha_pre + a_id,
+                    cookies=self.qicha_cookie,
+                    encoding='utf-8',
+                    callback=self.generate_firm_content
+                )
+            else:
+                yield scrapy.Request(
+                    self.url_qichacha_pre + a_id + ".html",
+                    encoding='utf-8',
+                    cookies=self.qicha_cookie,
+                    callback=self.generate_firm_content
+                )
+
         qitem = response.meta["item"]
         base_info = qitem.base_info
         base_info.append({"工商信息": self.clean_content(response.body)})
@@ -153,6 +167,7 @@ class QichacahSpider(scrapy.Spider):
         yuqing = qitem.yuqing
         yuqing.append({"新闻舆情": self.clean_content(response.body)})
         qitem.yuqing = yuqing
+        qitem.insert_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         qitem.save()
 
         yield scrapy.Request(

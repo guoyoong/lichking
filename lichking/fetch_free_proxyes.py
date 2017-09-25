@@ -5,13 +5,14 @@ import urllib2
 import logging
 from lichking.mongo.mongo_client import *
 from lichking.util.md5_util import *
-from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.interval import *
 
 
 logger = logging.getLogger(__name__)
 
 
 def get_html(url):
+    print "get html : " + url
     request = urllib2.Request(url)
     request.add_header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/45.0.2454.99 Safari/537.36")
     html = urllib2.urlopen(request)
@@ -159,12 +160,12 @@ def fetch_httpdaili():
 
 def check(proxy):
     import urllib2
-    url = "http://www.baidu.com/js/bdsug.js?v=1.0.3.0"
+    url = "http://connect.rom.miui.com/generate_204"
     proxy_handler = urllib2.ProxyHandler({'http': "http://" + proxy})
     opener = urllib2.build_opener(proxy_handler, urllib2.HTTPHandler)
     try:
         response = opener.open(url, timeout=1)
-        return response.code == 200 and response.url == url
+        return response.code == 204 and response.url == url
     except Exception:
         return False
 
@@ -180,39 +181,49 @@ def fetch_all():
     for p in proxyes:
         if check(p):
             valid_proxyes.append(p)
-            print p
+            print "valid:" + p
 
     return valid_proxyes
 
 
 def trigger_proxy_job():
-    import sys
-    root_logger = logging.getLogger("")
-    stream_handler = logging.StreamHandler(sys.stdout)
-    formatter = logging.Formatter('%(name)-8s %(asctime)s %(levelname)-8s %(message)s', '%a, %d %b %Y %H:%M:%S', )
-    stream_handler.setFormatter(formatter)
-    root_logger.addHandler(stream_handler)
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-    proxyes = fetch_all()
+    print "start"
+    proxyes = []
+    proxyes += fetch_mimvp()
+    proxyes += fetch_xici()
+    proxyes += fetch_ip181()
+    proxyes += fetch_httpdaili()
+    valid_proxyes = []
+    print "checking proxyes validation"
     for p in proxyes:
+        if check(p):
+            valid_proxyes.append(p)
+            print "valid:" + p
+
+    for p in valid_proxyes:
         proxy_item = FreeProxyItem()
         proxy_item._id = Md5Util.generate_md5(p)
         proxy_item.ip = str(p).split(":")[0]
         proxy_item.port = str(p).split(":")[1]
+        proxy_item.time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         proxy_item.save()
 
     items = MongoClient.get_all_proxy()
+    print "check exists proxy !"
     for p_item in items:
         if not check(str(p_item.ip) + ":" + str(p_item.port)):
+            print "delete : " + str(p_item.ip) + ":" + str(p_item.port) + ", time: " + p_item.time
             FreeProxyItem.objects(_id=p_item._id).delete()
-
+    trigger_proxy_job()
 
 if __name__ == '__main__':
     trigger_proxy_job()
-    # bscheduler = BlockingScheduler()
-    # bscheduler.add_job(trigger_proxy_job, 'interval', minutes=8)
-    # bscheduler.start()
+    # scheduler = BlockingScheduler()
+    # start_time = datetime.now() + timedelta(seconds=1)
+    # trigger = IntervalTrigger(seconds=10,
+    #                           start_date=start_time)
+    # scheduler.add_job(trigger_proxy_job, trigger)
+    # scheduler.start()
 
 
 

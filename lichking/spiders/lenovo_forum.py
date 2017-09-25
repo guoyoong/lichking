@@ -25,7 +25,7 @@ class LenovoClub(scrapy.Spider):
         'AUTOTHROTTLE_ENABLED': True,
         'AUTOTHROTTLE_START_DELAY': 0.5,
         'AUTOTHROTTLE_MAX_DELAY': 0.8,
-        'DOWNLOAD_DELAY': 1.2,
+        'DOWNLOAD_DELAY': 0.8,
     }
 
     # 断点
@@ -34,31 +34,32 @@ class LenovoClub(scrapy.Spider):
 
     # scrapy start and check page num
     def start_requests(self):
-        url = 'http://club.lenovo.com.cn/forum-all-reply_time-0-1'
-        yield scrapy.Request(
-            url,
-            meta={"page_key": 1},
-            callback=self.generate_forum_url
-        )
-
-    # filter all forum url and store
-    def generate_forum_url(self, response):
-        page_key = int(response.meta['page_key']) + 1
-        # check last forum time 只抓取一天前的数据
-        rep_time = response.xpath('//div[@class="Forumhome_listbox"]//dl//dd//p/text()').extract()
-        if self.check_rep_date(rep_time):
-            url = 'http://club.lenovo.com.cn/forum-all-reply_time-0-' + str(page_key)
+        for i in range(1, 80):
             yield scrapy.Request(
-                url,
-                meta={"page_key": page_key},
+                'http://club.lenovo.com.cn/forum-all-reply_time-0-' + str(i),
+                meta={"page_key": 1, "proxy": MongoClient.get_random_proxy()},
                 callback=self.generate_forum_url
             )
 
-            for h1a_forum_url in response.xpath('//div[@class="Forumhome_listbox"]//dd//h1//a//@href').extract():
-                yield scrapy.Request(
-                    h1a_forum_url,
-                    callback=self.generate_forum_content
-                )
+    # filter all forum url and store
+    def generate_forum_url(self, response):
+        # page_key = int(response.meta['page_key']) + 1
+        # check last forum time 只抓取一天前的数据
+        # rep_time = response.xpath('//div[@class="Forumhome_listbox"]//dl//dd//p/text()').extract()
+        # if self.check_rep_date(rep_time):
+        #     url = 'http://club.lenovo.com.cn/forum-all-reply_time-0-' + str(page_key)
+        #     yield scrapy.Request(
+        #         url,
+        #         meta={"page_key": page_key, "proxy": MongoClient.get_random_proxy()},
+        #         callback=self.generate_forum_url
+        #     )
+
+        for h1a_forum_url in response.xpath('//div[@class="Forumhome_listbox"]//dd//h1//a//@href').extract():
+            yield scrapy.Request(
+                h1a_forum_url,
+                meta={"proxy": MongoClient.get_random_proxy()},
+                callback=self.generate_forum_content
+            )
 
     # parse forum content and store
     def generate_forum_content(self, response):
@@ -146,6 +147,7 @@ class LenovoClub(scrapy.Spider):
                         forum_url += '\n' + url
                         yield scrapy.Request(
                             url,
+                            meta={"proxy": MongoClient.get_random_proxy()},
                             callback=self.generate_forum_content,
                         )
 
@@ -154,6 +156,7 @@ class LenovoClub(scrapy.Spider):
                     forum_url += '\n' + url
                     yield scrapy.Request(
                         url,
+                        meta={"proxy": MongoClient.get_random_proxy()},
                         callback=self.generate_forum_content,
                     )
         else:
@@ -178,7 +181,7 @@ class LenovoClub(scrapy.Spider):
     @staticmethod
     def check_rep_date(rep_time):
         logging.error(rep_time[2])
-        if rep_time[2].find('前') != -1:
+        if rep_time[2].find('前') != -1 or rep_time[2].find('刚刚') != -1:
             return True
         today = datetime.datetime.now().strftime("%Y-%m-%d")
         yestday = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
